@@ -396,9 +396,12 @@ if __name__ == "__main__":
             animate_exit()
         elif user_input.lower() == "/model":
             print(f"\n{YELLOW}Mevcut model RAM'den siliniyor... Lütfen bekleyin.{RESET}")
-            del model
-            del tokenizer
-            gc.collect()
+            try:
+                del model
+                del tokenizer
+                gc.collect()
+            except:
+                pass
             print(f"{GREEN}RAM başarıyla temizlendi!{RESET}")
             time.sleep(1)
             
@@ -508,6 +511,11 @@ if __name__ == "__main__":
             hf_id = parts[1] if len(parts) > 1 else ""
             if not hf_id:
                 print(f"{YELLOW}Kullanım: /hf-indir <huggingface_model_id>{RESET}")
+                continue
+                
+            import re
+            if not re.match(r'^[\w\-\.]+/[\w\-\.]+$', hf_id):
+                print(f"{RED}[HATA] Geçersiz veya tehlikeli model ID formatı tespit edildi!{RESET}")
                 continue
                 
             print(f"{YELLOW}Mevcut RAM boşaltılıyor...{RESET}")
