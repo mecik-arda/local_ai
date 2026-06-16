@@ -1,0 +1,22 @@
+# Python Environments and Caches
+ai_env/
+cpuf_env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Models and Large Files
+encrypted_models/
+*.bin
+*.h5
+*.cpuf_llm
+
+# Configuration & Data
+config.json
+chats/
+memory/
+
+# Other Repositories (Handled via submodules or ignored to prevent conflicts)
+CyberPUF_LLM/
+CyberPUF/
