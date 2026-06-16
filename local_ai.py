@@ -37,7 +37,12 @@ DEFAULT_CONFIG = {
     "max_tokens": 512,
     "temperature": 0.7,
     "privacy_mode": False,
-    "cyberpuf_enabled": False
+    "cyberpuf_enabled": False,
+    "hardware_attestation_enabled": False,
+    "pqc_enabled": False,
+    "anti_debug_enabled": False,
+    "telemetry_enabled": False,
+    "layer_paging_enabled": False
 }
 
 def load_config():
@@ -117,11 +122,16 @@ def settings_menu():
         print(f"  {GREEN}3){RESET} Model Yaratıcılığı/Sıcaklık (Şu anki: {config.get('temperature', 0.7)})")
         print(f"  {GREEN}4){RESET} Gizlilik Modu (Şu anki: {'AÇIK' if config.get('privacy_mode', False) else 'KAPALI'})")
         print(f"  {GREEN}5){RESET} CyberPUF LLM Modülü (Şu anki: {'AÇIK' if config.get('cyberpuf_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}6){RESET} Ayarları Sıfırla")
-        print(f"  {GREEN}7){RESET} Kaydet ve Geri Dön")
+        print(f"  {GREEN}6){RESET} Donanım Onaylama (Şu anki: {'AÇIK' if config.get('hardware_attestation_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}7){RESET} PQC / Kuantum Sonrası (Şu anki: {'AÇIK' if config.get('pqc_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}8){RESET} Anti-Debugging (Şu anki: {'AÇIK' if config.get('anti_debug_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}9){RESET} Dashboard Telemetrisi (Şu anki: {'AÇIK' if config.get('telemetry_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}10){RESET} Parçalı Şifre Çözme (Şu anki: {'AÇIK' if config.get('layer_paging_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}11){RESET} Ayarları Sıfırla")
+        print(f"  {GREEN}12){RESET} Kaydet ve Geri Dön")
         print(f"{CYAN}{BOLD}" + "="*50 + f"{RESET}")
         
-        secim = input(f"\n{BOLD}Seçiminiz (1/2/3/4/5/6/7): {RESET}").strip()
+        secim = input(f"\n{BOLD}Seçiminiz (1-12): {RESET}").strip()
         
         if secim == "1":
             yeni_cihaz = input(f"Hedef cihazı yazın (Örn: AUTO, CPU, GPU, NPU) [Geçerli: {config.get('device', 'AUTO')}]: ").strip().upper()
@@ -166,11 +176,41 @@ def settings_menu():
             print(f"{GREEN}CyberPUF LLM Modülü {'KAPALI' if current_cpuf else 'AÇIK'} olarak değiştirildi.{RESET}")
             time.sleep(1)
         elif secim == "6":
+            current_val = config.get("hardware_attestation_enabled", False)
+            config["hardware_attestation_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Donanım Onaylama {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "7":
+            current_val = config.get("pqc_enabled", False)
+            config["pqc_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}PQC Koruması {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "8":
+            current_val = config.get("anti_debug_enabled", False)
+            config["anti_debug_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Anti-Debugging {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "9":
+            current_val = config.get("telemetry_enabled", False)
+            config["telemetry_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Dashboard Telemetrisi {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "10":
+            current_val = config.get("layer_paging_enabled", False)
+            config["layer_paging_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Parçalı Şifre Çözme {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "11":
             config = DEFAULT_CONFIG.copy()
             save_config(config)
             print(f"{GREEN}Ayarlar varsayılana sıfırlandı.{RESET}")
             time.sleep(1)
-        elif secim == "7":
+        elif secim == "12":
             break
         else:
             print(f"{RED}Geçersiz seçim.{RESET}")
