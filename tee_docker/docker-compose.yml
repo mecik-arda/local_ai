@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  local_ai_tee:
+    build:
+      context: ..
+      dockerfile: tee_docker/Dockerfile
+    container_name: local_ai_tee_container
+    privileged: true # FUSE ve tmpfs için gerekli
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../models:/app/models # Yüklenen şifreli modeller
+    environment:
+      - TEE_MODE=1
+      - USE_FUSE_STREAMING=1
+    restart: unless-stopped

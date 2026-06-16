@@ -8,6 +8,8 @@ import gc
 import psutil
 
 import json
+from dotenv import load_dotenv
+load_dotenv()
 cpuf_process = None
 
 warnings.filterwarnings("ignore")
@@ -370,7 +372,7 @@ if __name__ == "__main__":
 
     print(f"\n{GREEN}{BOLD}[SİSTEM] Sistem hazır! Yerel yapay zeka başarıyla başlatıldı.{RESET}")
     print(f"{YELLOW}Sohbet Komutları:{RESET} Çıkış: {BOLD}exit{RESET} | Anlık Hafıza Sıfırla: {BOLD}/temizle{RESET} | Terminal Geçmişi: {BOLD}/gecmis{RESET}")
-    print(f"{YELLOW}Sistem Komutları:{RESET} Model Değiştir: {BOLD}/model{RESET} | Sistem Kaynakları: {BOLD}/sistem{RESET} | Dışa Aktar: {BOLD}/disa-aktar rapor.md{RESET}")
+    print(f"{YELLOW}Sistem Komutları:{RESET} Model Değiştir: {BOLD}/model{RESET} | Sistem Kaynakları: {BOLD}/sistem{RESET} | Dışa Aktar: {BOLD}/disa-aktar rapor.md{RESET} | HF İndir: {BOLD}/hf-indir repo_id{RESET}")
     print(f"{YELLOW}Hafıza Komutları:{RESET} Hafızayı Gör: {BOLD}/hafiza{RESET} | Hafızayı Yenile: {BOLD}/yenile{RESET}")
     print(f"{CYAN}" + "="*80 + f"{RESET}")
 
@@ -500,6 +502,42 @@ if __name__ == "__main__":
                 print(f"{RED}Model geri yüklenemedi. Çıkış yapılıyor.{RESET}")
                 sys.exit(1)
             print(f"{GREEN}Model başarıyla geri yüklendi!{RESET}")
+            continue
+        elif user_input.lower().startswith("/hf-indir"):
+            parts = user_input.split(" ", 1)
+            hf_id = parts[1] if len(parts) > 1 else ""
+            if not hf_id:
+                print(f"{YELLOW}Kullanım: /hf-indir <huggingface_model_id>{RESET}")
+                continue
+                
+            print(f"{YELLOW}Mevcut RAM boşaltılıyor...{RESET}")
+            try:
+                del model
+                del tokenizer
+                gc.collect()
+            except: pass
+            
+            from huggingface_hub import snapshot_download
+            import tempfile
+            import subprocess
+            
+            print(f"{CYAN}[HF] {hf_id} için Hugging Face'e bağlanılıyor...{RESET}")
+            token = os.environ.get("HF_TOKEN")
+            
+            with tempfile.TemporaryDirectory() as temp_dir:
+                print(f"{GREEN}[HF] İndirme başlatılıyor... (İnternet hızınıza bağlıdır){RESET}")
+                try:
+                    snapshot_download(repo_id=hf_id, local_dir=temp_dir, token=token, ignore_patterns=["*.msgpack", "coreml/*"])
+                    out_file = os.path.join("models", hf_id.replace("/", "_") + ".cpuf_llm")
+                    os.makedirs("models", exist_ok=True)
+                    print(f"{CYAN}[HF] İndirilen model stream olarak şifreleniyor: {out_file}{RESET}")
+                    subprocess.run([sys.executable, "CyberPUF_LLM/llm_encryptor.py", temp_dir, out_file], check=True)
+                    print(f"{GREEN}>> Başarılı: Model indirilip şifrelendi! (.cpuf_llm){RESET}")
+                except Exception as e:
+                    print(f"{RED}[HATA] HF İşlemi başarısız: {e}{RESET}")
+            
+            print(f"{YELLOW}Sistem tekrar yükleniyor...{RESET}")
+            tokenizer, model = load_ai_model(model_id, core, device_target)
             continue
         elif not user_input:
             continue
