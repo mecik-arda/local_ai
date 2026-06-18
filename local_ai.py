@@ -42,7 +42,7 @@ except ImportError:
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 
 BLUE = "\033[94m"
 GREEN = "\033[92m"
@@ -67,7 +67,8 @@ DEFAULT_CONFIG = {
     "telemetry_enabled": False,
     "layer_paging_enabled": False,
     "system_character": "Varsayılan Asistan",
-    "voice_feedback_enabled": False
+    "voice_feedback_enabled": False,
+    "debate_visibility": True
 }
 
 LOCALIZATION = {
@@ -99,6 +100,7 @@ LOCALIZATION = {
             "Dashboard Telemetrisi",
             "Parçalı Şifre Çözme",
             "Sesli Yanıt / TTS",
+            "Çoklu Ajan Canlı Tartışma",
             "Dil (Language)",
             "Ayarları Sıfırla",
             "Kaydet ve Geri Dön"
@@ -141,6 +143,7 @@ LOCALIZATION = {
             "Dashboard Telemetry",
             "Layer-by-Layer Paging",
             "Voice Feedback / TTS",
+            "Multi-Agent Live Debate",
             "Language (Dil)",
             "Reset Settings",
             "Save & Go Back"
@@ -249,11 +252,12 @@ def settings_menu():
         print(f"  {GREEN}9){RESET} {opts[8]} ({state(config.get('telemetry_enabled', False))})")
         print(f"  {GREEN}10){RESET} {opts[9]} ({state(config.get('layer_paging_enabled', False))})")
         print(f"  {GREEN}11){RESET} {opts[10]} ({state(config.get('voice_feedback_enabled', False))})")
-        print(f"  {GREEN}12){RESET} {opts[11]} ({config.get('language', 'TR')})")
-        print(f"  {GREEN}13){RESET} {opts[12]}")
+        print(f"  {GREEN}12){RESET} {opts[11]} ({state(config.get('debate_visibility', True))})")
+        print(f"  {GREEN}13){RESET} {opts[12]} ({config.get('language', 'TR')})")
         print(f"  {GREEN}14){RESET} {opts[13]}")
+        print(f"  {GREEN}15){RESET} {opts[14]}")
         print(f"{CYAN}{BOLD}" + "="*50 + f"{RESET}")
-        secim = input(f"\\n{BOLD}Seçiminiz (1-14) | /yardim: {RESET}").strip()
+        secim = input(f"\n{BOLD}Seçiminiz (1-15) | /yardim: {RESET}").strip()
         
         if secim.lower() in ["/yardim", "?", "yardım"]:
             print(f"\n{CYAN}{BOLD}--- AYARLAR YARDIM MENÜSÜ ---{RESET}")
@@ -343,17 +347,23 @@ def settings_menu():
             print(f"{GREEN}Sesli Yanıt / TTS {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
             time.sleep(1)
         elif secim == "12":
+            current_val = config.get("debate_visibility", True)
+            config["debate_visibility"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Çoklu Ajan Canlı Tartışma {'AÇIK' if not current_val else 'KAPALI'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "13":
             new_lang = "EN" if config.get("language", "TR") == "TR" else "TR"
             config["language"] = new_lang
             save_config(config)
             print(f"{GREEN}Language / Dil -> {new_lang}{RESET}")
             time.sleep(1)
-        elif secim == "13":
+        elif secim == "14":
             config = DEFAULT_CONFIG.copy()
             save_config(config)
             print(f"{GREEN}Ayarlar / Settings reset.{RESET}")
             time.sleep(1)
-        elif secim == "14":
+        elif secim == "15":
             break
         else:
             print(f"{RED}Geçersiz seçim.{RESET}")
@@ -380,7 +390,20 @@ def load_memory(memory_dir="memory"):
         return combined
     return ""
 
-def setup_rag(docs_dir="docs"):
+def setup_rag(docs_dir="docs", force_refresh=False):
+    persist_dir = "memory/chroma_db"
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    
+    if force_refresh and os.path.exists(persist_dir):
+        import shutil
+        shutil.rmtree(persist_dir, ignore_errors=True)
+        print(f"\n[RAG] Eski bellek silindi. Yeniden oluşturuluyor...")
+        
+    if os.path.exists(persist_dir) and not force_refresh:
+        vectorstore = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+        print(f"\n[RAG] Kalıcı ChromaDB vektör belleği başarıyla yüklendi ({persist_dir}).")
+        return vectorstore
+        
     if not os.path.exists(docs_dir):
         return None
     
@@ -406,10 +429,9 @@ def setup_rag(docs_dir="docs"):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     splits = text_splitter.split_documents(docs)
     
-    print("[RAG] Vektör veritabanı oluşturuluyor (Bu işlem ilk seferde biraz sürebilir)...")
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectorstore = FAISS.from_documents(splits, embeddings)
-    print(f"[RAG] Sistem {len(docs)} sayfa belgeyi ve {len(splits)} parçayı başarıyla hafızaya aldı!\n")
+    print("[RAG] Vektör veritabanı (ChromaDB) oluşturuluyor (Bu işlem ilk seferde biraz sürebilir)...")
+    vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings, persist_directory=persist_dir)
+    print(f"[RAG] Sistem {len(docs)} sayfa belgeyi ve {len(splits)} parçayı başarıyla kalıcı hafızaya aldı!\n")
     return vectorstore
 
 def select_model():
@@ -703,7 +725,9 @@ if __name__ == "__main__":
             continue
         elif user_input.lower() in ["/yenile", "/refresh"]:
             memory_context = load_memory()
-            print(f"{GREEN}>> Hafıza dosyaları başarıyla yeniden yüklendi!{RESET}")
+            vectorstore = setup_rag(docs_dir="docs", force_refresh=True)
+            retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) if vectorstore else None
+            print(f"{GREEN}>> Hafıza dosyaları ve RAG belleği başarıyla yeniden yüklendi!{RESET}")
             continue
         elif user_input.lower().startswith("/karakter"):
             print(f"\n{BOLD}{CYAN}--- KARAKTER SEÇİMİ ---{RESET}")
@@ -864,6 +888,48 @@ if __name__ == "__main__":
                 print(f"{YELLOW}İşlem iptal edildi.{RESET}")
                 continue
                 
+        elif user_input.lower().startswith("/debate") or user_input.lower().startswith("/tartisma"):
+            parts = user_input.split(" ", 1)
+            if len(parts) < 2:
+                print(f"{YELLOW}Kullanım: /debate <sorgu/konu>{RESET}")
+                continue
+            konu = parts[1]
+            print(f"\n{CYAN}{BOLD}--- ÇOKLU AJAN TARTIŞMASI BAŞLIYOR ---{RESET}")
+            print(f"{YELLOW}Konu: {konu}{RESET}")
+            
+            debate_visible = config.get("debate_visibility", True)
+            
+            # Ajan 1: Yazılım Uzmanı (Taslak oluşturur)
+            ajan1_prompt = f"Sen bir Yazılım Geliştiricisin. Verilen konu hakkında çözüm veya kod taslağı üret. Konu: {konu}"
+            if debate_visible: print(f"\n{MAGENTA}{BOLD}[Ajan 1 - Yazılımcı] düşünüyor...{RESET}")
+            ajan1_inputs = tokenizer(ajan1_prompt, return_tensors="pt").to(device)
+            ajan1_outputs = model.generate(**ajan1_inputs, max_new_tokens=config.get("max_tokens", 512), do_sample=True, temperature=0.7)
+            ajan1_cevap = tokenizer.decode(ajan1_outputs[0][ajan1_inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+            if debate_visible: print(f"{MAGENTA}[Yazılımcı]:{RESET}\n{ajan1_cevap}")
+            
+            # Ajan 2: Güvenlik Uzmanı (Taslağı eleştirir ve güvenlik açıklarını bulur)
+            ajan2_prompt = f"Sen bir Siber Güvenlik Uzmanısın. Yazılımcının şu çözümünü incele, güvenlik açıklarını veya zayıf noktalarını bul, güvenli bir öneri sun:\n\nYazılımcı Çözümü:\n{ajan1_cevap}\n\nDeğerlendirmen:"
+            if debate_visible: print(f"\n{RED}{BOLD}[Ajan 2 - Güvenlik Uzmanı] inceliyor...{RESET}")
+            ajan2_inputs = tokenizer(ajan2_prompt, return_tensors="pt").to(device)
+            ajan2_outputs = model.generate(**ajan2_inputs, max_new_tokens=config.get("max_tokens", 512), do_sample=True, temperature=0.7)
+            ajan2_cevap = tokenizer.decode(ajan2_outputs[0][ajan2_inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+            if debate_visible: print(f"{RED}[Güvenlik Uzmanı]:{RESET}\n{ajan2_cevap}")
+            
+            # Ajan 3: Karar Verici (Konsolide çözüm sunar)
+            ajan3_prompt = f"Sen bir Teknik Lidersin. Konu: {konu}. Yazılımcı ve Güvenlik Uzmanı'nın görüşlerini birleştirerek nihai, güvenli ve en iyi çözümü sun:\n\nYazılımcı:\n{ajan1_cevap}\n\nGüvenlikçi:\n{ajan2_cevap}\n\nNihai Kararın:"
+            if debate_visible: print(f"\n{GREEN}{BOLD}[Ajan 3 - Teknik Lider] nihai kararı veriyor...{RESET}")
+            else: print(f"\n{GREEN}{BOLD}Ajanlar kendi aralarında tartışıyor, nihai sonuç bekleniyor...{RESET}")
+            
+            ajan3_inputs = tokenizer(ajan3_prompt, return_tensors="pt").to(device)
+            ajan3_outputs = model.generate(**ajan3_inputs, max_new_tokens=config.get("max_tokens", 512), do_sample=True, temperature=0.7)
+            ajan3_cevap = tokenizer.decode(ajan3_outputs[0][ajan3_inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+            print(f"\n{GREEN}[Nihai Sonuç]:{RESET}\n{ajan3_cevap}")
+            
+            chat_history.append({"role": "user", "content": f"Tartışma Konusu: {konu}"})
+            chat_history.append({"role": "assistant", "content": f"Multi-Agent Nihai Kararı:\n{ajan3_cevap}"})
+            print(f"{CYAN}" + "-"*80 + f"{RESET}")
+            continue
+
         elif user_input.lower().startswith("/ara"):
             parts = user_input.split(" ", 1)
             if len(parts) < 2:
@@ -932,6 +998,7 @@ if __name__ == "__main__":
             print(f"{YELLOW}/calistir <komut>:{RESET} Bilgisayarınızın terminalinde yerel komut (örn: dir, ls, python) çalıştırır ve çıktısını yapay zekaya yorumlatır.")
             print(f"{YELLOW}/ara <sorgu>:{RESET} DuckDuckGo üzerinden internette arama yapar ve güncel bilgileri yapay zekaya sunar.")
             print(f"{YELLOW}/goster <resim.png> <soru>:{RESET} Resimdeki yazıları ve kodları OCR ile okuyup modele iletir.")
+            print(f"{YELLOW}/debate <konu>:{RESET} Çoklu Ajan (Yazılımcı + Güvenlikçi + Teknik Lider) sistemiyle bir konuyu tartışarak en güvenli kararı üretir.")
             print(f"{YELLOW}/ses-dinle:{RESET} Mikrofonunuzu açıp 5 saniye sesinizi dinler ve yapay zekaya yazar.")
             print(f"{YELLOW}/model:{RESET} Modeli RAM'den tamamen siler ve ana menüye dönüp başka bir model seçmenizi sağlar.")
             print(f"{YELLOW}/sistem:{RESET} CPU ve RAM tüketiminizi ekrana canlı yansıtır.")
