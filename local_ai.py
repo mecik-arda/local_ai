@@ -380,17 +380,11 @@ def load_ai_model(model_id, core, device_target):
 
     print(f"[2/2] Optimize edilmiş OpenVINO modeli indiriliyor ve Intel {device_target} üzerinde derleniyor...")
     try:
-        # GPU büyük bellek tahsisi hatalarını önlemek için ov_config ekliyoruz
-        ov_config = {}
-        if device_target == "GPU":
-            ov_config["GPU_ENABLE_SDPA_OPTIMIZATION"] = "YES"
-            ov_config["ENABLE_LARGE_ALLOCATIONS"] = "YES"
-
+        # Eski hatalı ov_config tamamen kaldırıldı, çünkü sürüm uyuşmazlığına neden oluyor.
         model = OVModelForCausalLM.from_pretrained(
             model_id,
             trust_remote_code=True,
-            device=device_target,
-            ov_config=ov_config if ov_config else None
+            device=device_target
         )
         return tokenizer, model
     except Exception as e:
