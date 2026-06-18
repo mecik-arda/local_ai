@@ -416,8 +416,8 @@ if __name__ == "__main__":
     print(f"{YELLOW}Hafıza Komutları:{RESET} Hafızayı Gör: {BOLD}/hafiza{RESET} | Hafızayı Yenile: {BOLD}/yenile{RESET}")
     print(f"{CYAN}" + "="*80 + f"{RESET}")
 
-    chat_history = []
-    MAX_HISTORY_TURNS = 5
+    chat_history = []       # Her eleman: {"role": "user"/"assistant", "content": "..."}
+    MAX_HISTORY_TURNS = 10  # 5 tur = 10 mesaj (user + assistant)
     memory_context = load_memory()
     
     # Yeni oturum loglaması
@@ -485,8 +485,10 @@ if __name__ == "__main__":
                     f.write(f"# DIŞA AKTARILAN SOHBET RAPORU\n")
                     f.write(f"Tarih: {datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n\n")
                     for entry in chat_history:
-                        entry_clean = entry.replace("<|user|>\n", "## Soru:\n").replace("<|end|>\n<|assistant|>\n", "\n\n## Yapay Zeka:\n").replace("<|end|>\n", "\n\n---\n")
-                        f.write(entry_clean)
+                        if entry["role"] == "user":
+                            f.write(f"## Soru:\n{entry['content']}\n\n")
+                        else:
+                            f.write(f"## Yapay Zeka:\n{entry['content']}\n\n---\n")
                 print(f"{GREEN}>> Sohbet başarıyla '{export_path}' dosyasına aktarıldı!{RESET}")
             except Exception as e:
                 print(f"{RED}Dışa aktarma başarısız: {e}{RESET}")
@@ -500,7 +502,12 @@ if __name__ == "__main__":
             if not chat_history:
                 print(f"{YELLOW}Henüz bir geçmişiniz yok.{RESET}")
             else:
-                print("".join(chat_history))
+                for entry in chat_history:
+                    if entry["role"] == "user":
+                        print(f"{BOLD}{CYAN}Soru:{RESET} {entry['content']}")
+                    else:
+                        print(f"{BOLD}{GREEN}Yapay Zeka:{RESET} {entry['content']}")
+                        print(f"{CYAN}" + "-"*40 + f"{RESET}")
             print(f"{CYAN}" + "-" * 56 + f"{RESET}")
             continue
         elif user_input.lower() in ["/hafiza", "/memory"]:
@@ -590,55 +597,109 @@ if __name__ == "__main__":
         elif not user_input:
             continue
             
+        # --- Config'i her turda yenile (ayar değişiklikleri anında yansısın) ---
+        config = load_config()
+
         context_str = ""
         if retriever:
-            docs = retriever.invoke(user_input)
-            if docs:
-                context_str = "\n".join([d.page_content for d in docs])
-                
-        system_prompt = "<|system|>\nSen Türkçe konuşan yardımsever bir yapay zekasın."
+            try:
+                rag_docs = retriever.invoke(user_input)
+                if rag_docs:
+                    context_str = "\n".join([d.page_content for d in rag_docs])
+            except Exception as e:
+                print(f"{RED}[RAG Hatası] Belge araması başarısız: {e}{RESET}")
+
+        # --- Sistem mesajını oluştur ---
+        system_content = "Sen Türkçe konuşan yardımsever bir yapay zekasın."
         if memory_context:
-            system_prompt += f"\n\n[Sistem Hafızası / Ana Kurallar]\n{memory_context}\n"
+            system_content += f"\n\n[Sistem Hafızası / Ana Kurallar]\n{memory_context}"
         if context_str:
-            system_prompt += f"\n[İlgili RAG Belgeleri]\nLütfen aşağıdaki bağlam bilgilerini kullanarak kullanıcının sorusunu cevapla:\n{context_str}"
-        system_prompt += "<|end|>\n"
-        
-        history_str = "".join(chat_history)
-        current_turn = f"<|user|>\n{user_input}<|end|>\n<|assistant|>\n"
-        
-        prompt = system_prompt + history_str + current_turn
-        
-        inputs = tokenizer(prompt, return_tensors="pt")
-        
+            system_content += f"\n[İlgili RAG Belgeleri]\nLütfen aşağıdaki bağlam bilgilerini kullanarak kullanıcının sorusunu cevapla:\n{context_str}"
+
+        # --- Mesaj listesini oluştur (tüm modeller için evrensel) ---
+        messages = [{"role": "system", "content": system_content}]
+        messages.extend(chat_history)
+        messages.append({"role": "user", "content": user_input})
+
+        # --- Prompt'u tokenizer'ın kendi şablonuyla oluştur ---
+        try:
+            if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template:
+                prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            else:
+                # Fallback: chat_template yoksa basit format
+                prompt = f"System: {system_content}\n"
+                for msg in chat_history:
+                    if msg["role"] == "user":
+                        prompt += f"User: {msg['content']}\n"
+                    else:
+                        prompt += f"Assistant: {msg['content']}\n"
+                prompt += f"User: {user_input}\nAssistant:"
+
+            inputs = tokenizer(prompt, return_tensors="pt")
+        except Exception as e:
+            print(f"\n{RED}[HATA] Prompt oluşturulamadı: {e}{RESET}")
+            continue
+
         prompt_tokens = inputs.input_ids.shape[1]
         max_context = 4096
+
+        # --- Prompt çok uzunsa eski geçmişi kırp ---
+        while prompt_tokens > (max_context - config.get("max_tokens", 512)) and len(chat_history) > 0:
+            chat_history.pop(0)  # En eski mesajı sil
+            # Mesajları tekrar oluştur
+            messages = [{"role": "system", "content": system_content}]
+            messages.extend(chat_history)
+            messages.append({"role": "user", "content": user_input})
+            try:
+                if hasattr(tokenizer, 'chat_template') and tokenizer.chat_template:
+                    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+                else:
+                    prompt = f"System: {system_content}\nUser: {user_input}\nAssistant:"
+                inputs = tokenizer(prompt, return_tensors="pt")
+                prompt_tokens = inputs.input_ids.shape[1]
+            except:
+                break
+
         token_pct = min((prompt_tokens / max_context) * 100, 100.0)
-        
+
         def draw_mini_bar(pct, length=15):
             filled = int(length * pct / 100)
             return "█" * filled + "░" * (length - filled)
-        
+
         bar_color = GREEN if token_pct < 60 else (YELLOW if token_pct < 85 else RED)
         print(f"\n{bar_color}[Hafıza Doluluğu: {draw_mini_bar(token_pct)} %{int(token_pct)} | {prompt_tokens}/{max_context} Token]{RESET}")
-        
+
         print(f"{BOLD}{YELLOW}Cevap üretiliyor...{RESET}", end="", flush=True)
-        
-        temp_val = config.get("temperature", 0.7)
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=config.get("max_tokens", 512),
-            temperature=temp_val,
-            do_sample=True if temp_val > 0 else False,
-            pad_token_id=tokenizer.eos_token_id
-        )
-        
-        response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        response = response.strip()
+
+        # --- Çıkarım (Inference) - try/except ile korumalı ---
+        try:
+            temp_val = config.get("temperature", 0.7)
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=config.get("max_tokens", 512),
+                temperature=temp_val,
+                do_sample=True if temp_val > 0 else False,
+                pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
+            )
+
+            response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+            response = response.strip()
+        except Exception as e:
+            print(f"\n{RED}[HATA] Model yanıt üretemedi: {e}{RESET}")
+            print(f"{YELLOW}İpucu: Bellek yetersiz olabilir. /temizle komutu ile geçmişi sıfırlayın veya daha küçük bir model deneyin.{RESET}")
+            continue
+
+        if not response:
+            print(f"\r{YELLOW}Yapay Zeka: (Boş yanıt üretildi, tekrar deneyin){RESET}")
+            continue
+
         print(f"\r{BOLD}{GREEN}Yapay Zeka:{RESET}\n{response}")
         print(f"{CYAN}" + "-"*80 + f"{RESET}")
-        
-        chat_history.append(f"<|user|>\n{user_input}<|end|>\n<|assistant|>\n{response}<|end|>\n")
-        
+
+        # Geçmişe evrensel formatta ekle (dict olarak)
+        chat_history.append({"role": "user", "content": user_input})
+        chat_history.append({"role": "assistant", "content": response})
+
         # Dosyaya Markdown olarak kaydet
         try:
             with open("chats/sohbet_gecmisi.md", "a", encoding="utf-8") as f:
@@ -647,5 +708,5 @@ if __name__ == "__main__":
         except:
             pass
 
-        if len(chat_history) > MAX_HISTORY_TURNS:
+        while len(chat_history) > MAX_HISTORY_TURNS:
             chat_history.pop(0)
