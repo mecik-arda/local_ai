@@ -419,9 +419,9 @@ if __name__ == "__main__":
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) if vectorstore else None
 
     print(f"\n{GREEN}{BOLD}[SİSTEM] Sistem hazır! Yerel yapay zeka başarıyla başlatıldı.{RESET}")
-    print(f"{YELLOW}Sohbet Komutları:{RESET} Çıkış: {BOLD}exit{RESET} | Anlık Hafıza Sıfırla: {BOLD}/temizle{RESET} | Terminal Geçmişi: {BOLD}/gecmis{RESET}")
+    print(f"{YELLOW}Sohbet Komutları:{RESET} Çıkış: {BOLD}exit{RESET} | Ana Menü: {BOLD}/menu{RESET} | Ayarlar: {BOLD}/ayarlar{RESET}")
     print(f"{YELLOW}Sistem Komutları:{RESET} Model Değiştir: {BOLD}/model{RESET} | Sistem Kaynakları: {BOLD}/sistem{RESET} | Dışa Aktar: {BOLD}/disa-aktar rapor.md{RESET} | HF İndir: {BOLD}/hf-indir repo_id{RESET}")
-    print(f"{YELLOW}Hafıza Komutları:{RESET} Hafızayı Gör: {BOLD}/hafiza{RESET} | Hafızayı Yenile: {BOLD}/yenile{RESET}")
+    print(f"{YELLOW}Hafıza Komutları:{RESET} Anlık Hafıza Sıfırla: {BOLD}/temizle{RESET} | Hafızayı Gör: {BOLD}/hafiza{RESET} | Hafızayı Yenile: {BOLD}/yenile{RESET}")
     print(f"{CYAN}" + "="*80 + f"{RESET}")
 
     chat_history = []       # Her eleman: {"role": "user"/"assistant", "content": "..."}
@@ -601,6 +601,28 @@ if __name__ == "__main__":
             
             print(f"{YELLOW}Sistem tekrar yükleniyor...{RESET}")
             tokenizer, model = load_ai_model(model_id, core, device_target)
+        elif user_input.lower() in ["/ayarlar", "/settings"]:
+            settings_menu()
+            continue
+        elif user_input.lower() in ["/menu", "/ana-menu"]:
+            print(f"\n{YELLOW}Ana menüye dönülüyor... Mevcut model RAM'den siliniyor.{RESET}")
+            try:
+                del model
+                del tokenizer
+                gc.collect()
+            except: pass
+            
+            new_model_id = select_model()
+            if new_model_id:
+                model_id = new_model_id
+                tokenizer, model = load_ai_model(model_id, core, device_target)
+                if not tokenizer or not model:
+                    print(f"{RED}Model yüklenemedi. Çıkış yapılıyor.{RESET}")
+                    sys.exit(1)
+                print(f"{GREEN}Menüden dönüldü! Kaldığınız yerden devam edebilirsiniz.{RESET}")
+            continue
+        elif user_input.startswith("/"):
+            print(f"{RED}HATA: Bilinmeyen komut '{user_input}'. Lütfen geçerli bir komut kullanın (örn: /temizle, /model, /ayarlar).{RESET}")
             continue
         elif not user_input:
             continue
