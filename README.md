@@ -2,61 +2,61 @@
 
 Orchestration and CLI Management Layer for CyberPUF and CyberPUF_LLM Modules.
 
-[Turkce](#turkce-dokumantasyon) | [English](#english-documentation)
+[Türkçe](#türkçe-dokümantasyon) | [English](#english-documentation)
 
 ---
 
-## Turkce Dokumantasyon
+## Türkçe Dokümantasyon
 
-### Projenin Amaci ve Kapsami
-Bu proje, CyberPUF (Physical Unclonable Function) tabanli uc yapay zeka (Edge-AI) model agirligi sifreleme sistemi ile optimize edilmis yerel buyuk dil modellerinin (LLM) orkestrasyonunu saglayan ana kontrol katmanidir. local_ai, donanim tabanli siber guvenlik mekanizmalarini (Intel SGX/TEE, TPM 2.0, PQC ve anti-debug korumalari) yerel yapay zeka cikarim (inference) motoru, Dokuman Destekli Arama (RAG) sistemi, sesli/gorsel asistan modulleri ve terminal ajani ile tek bir CLI arayuzunde birlestirir.
+### Projenin Amacı ve Kapsamı
+Bu proje, CyberPUF (Physical Unclonable Function) tabanlı uç yapay zeka (Edge-AI) model ağırlığı şifreleme sistemi ile optimize edilmiş yerel büyük dil modellerinin (LLM) orkestrasyonunu sağlayan ana kontrol katmanıdır. local_ai, donanım tabanlı siber güvenlik mekanizmalarını (Intel SGX/TEE, TPM 2.0, PQC ve anti-debug korumaları) yerel yapay zeka çıkarım (inference) motoru, Doküman Destekli Arama (RAG) sistemi, sesli/görsel asistan modülleri ve terminal ajanı ile tek bir CLI arayüzünde birleştirir.
 
 ---
 
 ### Sistem Mimarisi ve Teknik Detaylar
 
-Sistem alti ana bilesenden olusmaktadir:
+Sistem altı ana bileşenden oluşmaktadır:
 
-#### 1. Cikarim (Inference) Motoru ve Bellek Yonetimi
-- **OpenVINO ve Optimum Intel:** Hugging Face modellerini Intel donanimlarinda optimize etmek icin Optimum Intel entegrasyonu kullanilir. Modeller FP16 veya INT4 formatlarinda cikarim yapabilir.
-- **Dinamik USM Fallback:** Cikarim hedefleri (CPU/GPU) dinamik olarak secilir. GPU uzerinde yetersiz USM (Unified Shared Memory) bellek ayrilimi veya gecersiz bellek tahsisi ("large_allocations" hatasi) durumunda, sistem calisma aninda otomatik olarak cikarimi kesintiye ugratmadan CPU moduna duser (OOM korumasi).
-- **Transformers Chat Templates:** Tokenizer katmaninda yerel modellerin chat_template yapilari cozumlenerek cok turlu sohbetler evrensel sekilde formatlanir. Bellek sinirlarina ulasildiginda eski baglamlar dinamik olarak pop edilerek baglam uzunlugu (Context Window) optimize edilir.
+#### 1. Çıkarım (Inference) Motoru ve Bellek Yönetimi
+- **OpenVINO ve Optimum Intel:** Hugging Face modellerini Intel donanımlarında optimize etmek için Optimum Intel entegrasyonu kullanılır. Modeller FP16 veya INT4 formatlarında çıkarım yapabilir.
+- **Dinamik USM Fallback:** Çıkarım hedefleri (CPU/GPU) dinamik olarak seçilir. GPU üzerinde yetersiz USM (Unified Shared Memory) bellek ayrılımı veya geçersiz bellek tahsisi ("large_allocations" hatası) durumunda, sistem çalışma anında otomatik olarak çıkarımı kesintiye uğratmadan CPU moduna düşer (OOM koruması).
+- **Transformers Chat Templates:** Tokenizer katmanında yerel modellerin chat_template yapıları çözümlenerek çok turlu sohbetler evrensel şekilde formatlanır. Bellek sınırlarına ulaşıldığında eski bağlamlar dinamik olarak pop edilerek bağlam uzunluğu (Context Window) optimize edilir.
 
-#### 2. Siber Guvenlik Katmani (CyberPUF_LLM Entegrasyonu)
-- **Donanim Onaylama (Hardware Attestation):** TEE (Trusted Execution Environment) Docker yapilari (Gramine/Intel SGX simülasyonu) ve simüle TPM 2.0 alintilari (quote) araciligiyla calisma ortami butunlugu dogrulanir.
-- **Kuantum Sonrasi Kriptografi (PQC - ML-KEM/Kyber):** Model anahtar uretim sureclerinde Rust tabanli mock ML-KEM rutinleri ile kuantum direncli anahtar kapsulleme uygulanir.
-- **Anti-Debugging ve Bellek Korumasi:** Linux `ptrace` API'si ve `/proc/self/status` altindaki `TracerPid` alaninin periyodik taranmasi ile dinamik analiz araclarinin (gdb, strace) sisteme baglanmasi engellenir. Izinsiz baglanti durumunda bellek aninda sifirlanir (zeroization).
-- **Parcali Sifre Cozme (Layer-by-Layer Paging):** Bellek uzerinden model agirliklarinin dump edilmesini onlemek amaciyla, model katmanlari parcalar halinde diskte saklanir ve yalnizca cikarim aninda ilgili yapay sinir agi katmani sifresi cozülerek bellege yuklenir. Islem bitince bellek temizlenir.
+#### 2. Siber Güvenlik Katmanı (CyberPUF_LLM Entegrasyonu)
+- **Donanım Onaylama (Hardware Attestation):** TEE (Trusted Execution Environment) Docker yapıları (Gramine/Intel SGX simülasyonu) ve simüle TPM 2.0 alıntıları (quote) aracılığıyla çalışma ortamı bütünlüğü doğrulanır.
+- **Kuantum Sonrası Kriptografi (PQC - ML-KEM/Kyber):** Model anahtar üretim süreçlerinde Rust tabanlı mock ML-KEM rutinleri ile kuantum dirençli anahtar kapsülleme uygulanır.
+- **Anti-Debugging ve Bellek Koruması:** Linux `ptrace` API'si ve `/proc/self/status` altındaki `TracerPid` alanının periyodik taranması ile dinamik analiz araçlarının (gdb, strace) sisteme bağlanması engellenir. İzinsiz bağlantı durumunda bellek anında sıfırlanır (zeroization).
+- **Parçalı Şifre Çözme (Layer-by-Layer Paging):** Bellek üzerinden model ağırlıklarının dump edilmesini önlemek amacıyla, model katmanları parçalar halinde diskte saklanır ve yalnızca çıkarım anında ilgili yapay sinir ağı katmanı şifresi çözülerek belleğe yüklenir. İşlem bitince bellek temizlenir.
 
-#### 3. Dokuman Destekli Arama (RAG - Retrieval-Augmented Generation)
-- **Vektor Veritabani:** LangChain altyapisiyla, yerel `docs/` dizinindeki PDF ve TXT dosyalari `RecursiveCharacterTextSplitter` ile parcalanir (chunk size: 500, overlap: 50).
-- **Semantik Arama:** `sentence-transformers/all-MiniLM-L6-v2` modeli yerel embedding vektorlerini uretir ve `FAISS` vektor veritabani indeksine kaydeder. Kullanici sorgulari bu vektor veri tabaninda aratilip en alakali ilk uc parca (k=3) asistan baglamina enjekte edilir.
+#### 3. Doküman Destekli Arama (RAG - Retrieval-Augmented Generation)
+- **Vektör Veritabanı:** LangChain altyapısıyla, yerel `docs/` dizinindeki PDF ve TXT dosyaları `RecursiveCharacterTextSplitter` ile parçalanır (chunk size: 500, overlap: 50).
+- **Semantik Arama:** `sentence-transformers/all-MiniLM-L6-v2` modeli yerel embedding vektörlerini üretir ve `FAISS` vektör veritabanı indeksine kaydeder. Kullanıcı sorguları bu vektör veri tabanında aratılıp en alakalı ilk üç parça (k=3) asistan bağlamına enjekte edilir.
 
-#### 4. Canli HUD (Heads-Up Dashboard) ve Streamer
-- **ANSI Imlec Yonetimi:** Yapay zeka yanit verirken cikarim akisini bozmamak icin terminalde ANSI imlec kaydetme/geri yukleme (`\033[s` ve `\033[u`) kodlari kullanilir.
-- **Sistem Monitorizasyonu:** `psutil` kullanilarak anlik CPU, RAM kullanim yuzdeleri ile cikarim hizi (Tokens/Second) ve uretilen toplam token sayisi terminalin en alt satirinda sabit bir HUD uzerinde canli olarak gosterilir.
+#### 4. Canlı HUD (Heads-Up Dashboard) ve Streamer
+- **ANSI İmleç Yönetimi:** Yapay zeka yanıt verirken çıkarım akışını bozmamak için terminalde ANSI imleç kaydetme/geri yükleme (`\033[s` ve `\033[u`) kodları kullanılır.
+- **Sistem Monitörizasyonu:** `psutil` kullanılarak anlık CPU, RAM kullanım yüzdeleri ile çıkarım hızı (Tokens/Second) ve üretilen toplam token sayısı terminalin en alt satırında sabit bir HUD üzerinde canlı olarak gösterilir.
 
-#### 5. Cevrimdisi Ses ve Gorsel OCR Entegrasyonu
-- **Speech-to-Text (STT):** `SpeechRecognition` kütüphanesi ile mikrofon girisi dinlenir, ortam gurultusu (`adjust_for_ambient_noise`) kalibre edilir ve ses verisi Google Web Speech API uzerinden metne cevrilir.
-- **Text-to-Speech (TTS):** Model tarafindan uretilen yanitlar, `pyttsx3` cevrimdisi ses motoru kullanilarak sesli geri bildirime donusturulur.
-- **Gorsel OCR (Tesseract):** RAM ve GPU yukunu artirmamak adina buyuk Vision-Language modelleri yerine hafif `pytesseract` OCR motoru entegre edilmistir. `/goster` komutu ile goruntulerden metin ve kod bloklari ayiklanarak LLM baglamina eklenir.
+#### 5. Çevrimdışı Ses ve Görsel OCR Entegrasyonu
+- **Speech-to-Text (STT):** `SpeechRecognition` kütüphanesi ile mikrofon girişi dinlenir, ortam gürültüsü (`adjust_for_ambient_noise`) kalibre edilir ve ses verisi Google Web Speech API üzerinden metne çevrilir.
+- **Text-to-Speech (TTS):** Model tarafından üretilen yanıtlar, `pyttsx3` çevrimdışı ses motoru kullanılarak sesli geri bildirime dönüştürülür.
+- **Görsel OCR (Tesseract):** RAM ve GPU yükünü artırmamak adına büyük Vision-Language modelleri yerine hafif `pytesseract` OCR motoru entegre edilmiştir. `/goster` komutu ile görüntülerden metin ve kod blokları ayıklanarak LLM bağlamına eklenir.
 
-#### 6. Terminal Ajani Modu
-- `/calistir` komutu ile asistan, isletim sistemi shell komutlarini `subprocess.check_output` uzerinden guvenli bir subshell altinda calistirir. Komut ciktisi veya olusan hata LLM baglamina otomatik olarak beslenerek analiz etmesi saglanir.
+#### 6. Terminal Ajanı Modu
+- `/calistir` komutu ile asistan, işletim sistemi shell komutlarını `subprocess.check_output` üzerinden güvenli bir subshell altında çalıştırır. Komut çıktısı veya oluşan hata LLM bağlamına otomatik olarak beslenerek analiz etmesi sağlanır.
 
 ---
 
-### Kurulum Adimlari
+### Kurulum Adımları
 
 #### 1. Sistem Gereksinimleri (Ubuntu/WSL)
-OCR ve ses modullerinin calisabilmesi icin asagidaki C++ derleme bilesenleri ve kütüphaneler kurulmalidir:
+OCR ve ses modüllerinin çalışabilmesi için aşağıdaki C++ derleme bileşenleri ve kütüphaneler kurulmalıdır:
 ```bash
 sudo apt-get update
 sudo apt-get install -y tesseract-ocr libtesseract-dev portaudio19-dev
 ```
 
-#### 2. Python Bagimliliklarinin Yuklenmesi
-Projeyi calistirmak icin `ai_env` adli sanal ortami aktif edip gereksinimleri yukleyin:
+#### 2. Python Bağımlılıklarının Yüklenmesi
+Projeyi çalıştırmak için `ai_env` adlı sanal ortamı aktif edip gereksinimleri yükleyin:
 ```bash
 source ai_env/bin/activate
 pip install -r requirements.txt
@@ -65,22 +65,22 @@ pip install -r requirements.txt
 
 ---
 
-### CLI Komutlari ve Parametreleri
+### CLI Komutları ve Parametreleri
 
-| Komut | Parametre | Aciklama |
+| Komut | Parametre | Açıklama |
 |---|---|---|
-| `/ayarlar` | Yok | CPU/GPU secimi, donanim onaylama, PQC, anti-debug, layer-paging ve sesli yanit durum toggling islemleri. |
-| `/yardim` | Yok | Calisilan ekrana gore dinamik (Baglamsal) aciklama listesi dondurur. |
-| `/calistir` | `<sistem_komutu>` | Terminal komutunu isletim sisteminde guvenlik onayiyla calistirip ciktisini modele besler. |
-| `/ara` | `<sorgu>` | DuckDuckGo search uzerinden yerel web aramasi yapar ve guncel sonuclari modele iletir. |
-| `/goster` | `<resim_yolu> <soru>` | Tesseract ile goruntuyu tarayip metin/kod bloklarini cikartir ve soruyla birlikte modele iletir. |
-| `/ses-dinle` | Yok | Mikrofon akisini 5 saniye dinleyip sesi metne cevirir. |
-| `/model` | Yok | Mevcut modeli RAM'den temizler ve yeni model secim ekranina doner. |
-| `/sistem` | Yok | CPU ve RAM yuzdelik kullanim barini ekrana yazdirir. |
-| `/disa-aktar` | `<dosya_adi>` | Mevcut sohbet gecmisini belirtilen Markdown (.md) dosyasina kaydeder. |
-| `/kaydet` | `<dosya_adi>` | Sohbet gecmisini JSON formatinda kaydeder. |
-| `/yukle` | `<dosya_adi>` | JSON formatinda kaydedilmis sohbeti yukler. |
-| `/karakter` | Yok | Modelin sistem rolunu (Asistan, Siber Guvenlikci, Yazilimci, Samimi Dost) degistirir. |
+| `/ayarlar` | Yok | CPU/GPU seçimi, donanım onaylama, PQC, anti-debug, layer-paging ve sesli yanıt durum toggling işlemleri. |
+| `/yardim` | Yok | Çalışılan ekrana göre dinamik (Bağlamsal) açıklama listesi döndürür. |
+| `/calistir` | `<sistem_komutu>` | Terminal komutunu işletim sisteminde güvenlik onayıyla çalıştırıp çıktısını modele besler. |
+| `/ara` | `<sorgu>` | DuckDuckGo search üzerinden yerel web araması yapar ve güncel sonuçları modele iletir. |
+| `/goster` | `<resim_yolu> <soru>` | Tesseract ile görüntüyü tarayıp metin/kod bloklarını çıkartır ve soruyla birlikte modele iletir. |
+| `/ses-dinle` | Yok | Mikrofon akışını 5 saniye dinleyip sesi metne çevirir. |
+| `/model` | Yok | Mevcut modeli RAM'den temizler ve yeni model seçim ekranına döner. |
+| `/sistem` | Yok | CPU ve RAM yüzdelik kullanım barını ekrana yazdırır. |
+| `/disa-aktar` | `<dosya_adi>` | Mevcut sohbet geçmişini belirtilen Markdown (.md) dosyasına kaydeder. |
+| `/kaydet` | `<dosya_adi>` | Sohbet geçmişini JSON formatında kaydeder. |
+| `/yukle` | `<dosya_adi>` | JSON formatında kaydedilmiş sohbeti yükler. |
+| `/karakter` | Yok | Modelin sistem rolünü (Asistan, Siber Güvenlikçi, Yazılımcı, Samimi Dost) değiştirir. |
 
 ---
 
