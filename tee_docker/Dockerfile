@@ -17,7 +17,7 @@ RUN echo "TEE Environment initialized (Mock SGX Support)"
 WORKDIR /app
 
 # Proje dosyalarını kopyala
-COPY ./local_ai.py /app/
+COPY ./underw_framework.py /app/
 COPY ./CyberPUF_LLM /app/CyberPUF_LLM
 COPY ./config.json /app/
 

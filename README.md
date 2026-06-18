@@ -1,4 +1,4 @@
-# local_ai
+# Underworld Framework
 
 Orchestration and CLI Management Layer for CyberPUF and CyberPUF_LLM Modules.
 
@@ -9,7 +9,7 @@ Orchestration and CLI Management Layer for CyberPUF and CyberPUF_LLM Modules.
 ## Türkçe Dokümantasyon
 
 ### Projenin Amacı ve Kapsamı
-Bu proje, CyberPUF (Physical Unclonable Function) tabanlı uç yapay zeka (Edge-AI) model ağırlığı şifreleme sistemi ile optimize edilmiş yerel büyük dil modellerinin (LLM) orkestrasyonunu sağlayan ana kontrol katmanıdır. local_ai, donanım tabanlı siber güvenlik mekanizmalarını (Intel SGX/TEE, TPM 2.0, PQC ve anti-debug korumaları) yerel yapay zeka çıkarım (inference) motoru, Doküman Destekli Arama (RAG) sistemi, sesli/görsel asistan modülleri ve terminal ajanı ile tek bir CLI arayüzünde birleştirir.
+Bu proje, CyberPUF (Physical Unclonable Function) tabanlı uç yapay zeka (Edge-AI) model ağırlığı şifreleme sistemi ile optimize edilmiş yerel büyük dil modellerinin (LLM) orkestrasyonunu sağlayan ana kontrol katmanıdır. Underworld Framework, donanım tabanlı siber güvenlik mekanizmalarını (Intel SGX/TEE, TPM 2.0, PQC ve anti-debug korumaları) yerel yapay zeka çıkarım (inference) motoru, Doküman Destekli Arama (RAG) sistemi, sesli/görsel asistan modülleri ve terminal ajanı ile tek bir CLI arayüzünde birleştirir.
 
 ---
 
@@ -87,7 +87,7 @@ pip install -r requirements.txt
 ## English Documentation
 
 ### Project Purpose and Scope
-This project serves as the primary orchestration and control plane for managing local large language models (LLMs) integrated with the CyberPUF (Physical Unclonable Function) edge cryptographic architecture. local_ai bridges hardware-level security mechanisms (Intel SGX/TEE enclaves, TPM 2.0, PQC, and anti-debug agents) with a optimized inference execution engine, Retrieval-Augmented Generation (RAG), voice/vision capabilities, and an autonomous terminal execution environment under a unified CLI.
+This project serves as the primary orchestration and control plane for managing local large language models (LLMs) integrated with the CyberPUF (Physical Unclonable Function) edge cryptographic architecture. Underworld Framework bridges hardware-level security mechanisms (Intel SGX/TEE enclaves, TPM 2.0, PQC, and anti-debug agents) with a optimized inference execution engine, Retrieval-Augmented Generation (RAG), voice/vision capabilities, and an autonomous terminal execution environment under a unified CLI.
 
 ---
 
