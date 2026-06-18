@@ -7,6 +7,9 @@ import warnings
 import gc
 import psutil
 
+import threading
+print_lock = threading.Lock()
+
 import json
 from dotenv import load_dotenv
 load_dotenv()
@@ -1139,18 +1142,19 @@ if __name__ == "__main__":
                     self.token_cache.extend(value.tolist())
                     text = self.tokenizer.decode(self.token_cache, skip_special_tokens=True)
                     if text:
-                        if self.is_first_token:
-                            # İlk gerçek token geldi, animasyon satırını temizle ve Yapay Zeka başlığını at
-                            sys.stdout.write("\r\033[K")
-                            sys.stdout.write(f"{BOLD}{GREEN}{loc['ai_name']}{RESET}\n")
-                            self.is_first_token = False
-                        
-                        # Sadece yeni gelen metin kısmını ekrana yazdır
-                        new_text = text[self.print_len:]
-                        if new_text:
-                            sys.stdout.write(new_text)
-                            sys.stdout.flush()
-                            self.print_len = len(text)
+                        with print_lock:
+                            if self.is_first_token:
+                                # İlk gerçek token geldi, animasyon satırını temizle ve Yapay Zeka başlığını at
+                                sys.stdout.write("\r\033[K")
+                                sys.stdout.write(f"{BOLD}{GREEN}{loc['ai_name']}{RESET}\n")
+                                self.is_first_token = False
+                            
+                            # Sadece yeni gelen metin kısmını ekrana yazdır
+                            new_text = text[self.print_len:]
+                            if new_text:
+                                sys.stdout.write(new_text)
+                                sys.stdout.flush()
+                                self.print_len = len(text)
             
                 def end(self):
                     pass
@@ -1186,8 +1190,9 @@ if __name__ == "__main__":
             while gen_thread.is_alive():
                 # Sadece ilk kelime/token gelene kadar animasyonu göster
                 if streamer.is_first_token:
-                    sys.stdout.write(f"\r{BOLD}{YELLOW}{loc['generating']} {CYAN}{animation[idx % len(animation)]}{RESET}")
-                    sys.stdout.flush()
+                    with print_lock:
+                        sys.stdout.write(f"\r{BOLD}{YELLOW}{loc['generating']} {CYAN}{animation[idx % len(animation)]}{RESET}")
+                        sys.stdout.flush()
                 else:
                     elapsed = time.time() - start_time
                     tokens = len(streamer.token_cache)
@@ -1196,15 +1201,17 @@ if __name__ == "__main__":
                     ram_pct = psutil.virtual_memory().percent
                     
                     hud = f"{CYAN}[HUD]{RESET} {BOLD}CPU:{RESET} %{cpu_pct} | {BOLD}RAM:{RESET} %{ram_pct} | {BOLD}Hız:{RESET} {tps:.1f} T/s | {BOLD}Token:{RESET} {tokens}"
-                    sys.stdout.write(f"\033[s\033[999;1H\033[K{hud}\033[u")
-                    sys.stdout.flush()
+                    with print_lock:
+                        sys.stdout.write(f"\033[s\033[999;1H\033[K{hud}\033[u")
+                        sys.stdout.flush()
                     
                 idx += 1
                 time.sleep(0.1)
 
             # HUD Temizleme
-            sys.stdout.write("\033[s\033[999;1H\033[K\033[u")
-            sys.stdout.flush()
+            with print_lock:
+                sys.stdout.write("\033[s\033[999;1H\033[K\033[u")
+                sys.stdout.flush()
 
             if gen_thread.error:
                 raise gen_thread.error
