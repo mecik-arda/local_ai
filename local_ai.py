@@ -55,6 +55,7 @@ RESET = "\033[0m"
 
 CONFIG_FILE = "config.json"
 DEFAULT_CONFIG = {
+    "language": "TR",
     "device": "AUTO",
     "max_tokens": 512,
     "temperature": 0.7,
@@ -68,6 +69,97 @@ DEFAULT_CONFIG = {
     "system_character": "Varsayılan Asistan",
     "voice_feedback_enabled": False
 }
+
+LOCALIZATION = {
+    "TR": {
+        "menu_header": "ANA MENÜ",
+        "settings_header": "AYARLAR MENÜSÜ",
+        "settings_help": "--- AYARLAR YARDIM MENÜSÜ ---",
+        "cat_cyber": "Siber Güvenlik (Pentest, Sızma Testi, Exploit/Zararlı Analizi)",
+        "cat_doc": "Belge, PDF ve Dosya İşlemleri (Özetleme, Düzenleme, Raporlama)",
+        "cat_gen": "Genel Kullanım ve Hafif Modeller (Hızlı Sohbet, Günlük İşler)",
+        "cat_hf": "HuggingFace OpenVINO Model ID'si ile Başlat",
+        "cat_settings": "Ayarlar",
+        "cat_cpuf": "CyberPUF LLM Dashboard Başlat",
+        "cat_exit": "Çıkış",
+        "cat_back": "[Geri Dön]",
+        "prompt_category": "Lütfen bir kategori seçin",
+        "prompt_model": "Lütfen bir model seçin",
+        "prompt_hf": "HuggingFace OpenVINO Model ID'si:",
+        "prompt_invalid": "Geçersiz seçim. Lütfen tekrar deneyin.",
+        "settings_opt": [
+            "Hedef Cihaz",
+            "Maksimum Cevap Uzunluğu",
+            "Model Yaratıcılığı/Sıcaklık",
+            "Gizlilik Modu",
+            "CyberPUF LLM Modülü",
+            "Donanım Onaylama",
+            "PQC / Kuantum Sonrası",
+            "Anti-Debugging",
+            "Dashboard Telemetrisi",
+            "Parçalı Şifre Çözme",
+            "Sesli Yanıt / TTS",
+            "Dil (Language)",
+            "Ayarları Sıfırla",
+            "Kaydet ve Geri Dön"
+        ],
+        "on": "AÇIK",
+        "off": "KAPALI",
+        "sys_ready": "[SİSTEM] Sistem hazır! Yerel yapay zeka başarıyla başlatıldı.",
+        "cmd_exit": "Çıkış",
+        "question": "Soru:",
+        "ai_name": "Yapay Zeka:",
+        "generating": "Cevap üretiliyor...",
+        "memory_cleared": "RAM başarıyla temizlendi!",
+        "lang_changed": "Dil TR olarak ayarlandı."
+    },
+    "EN": {
+        "menu_header": "MAIN MENU",
+        "settings_header": "SETTINGS MENU",
+        "settings_help": "--- SETTINGS HELP MENU ---",
+        "cat_cyber": "Cyber Security (Pentest, Exploits, Malware Analysis)",
+        "cat_doc": "Document, PDF and File Operations (Summary, Edit, Report)",
+        "cat_gen": "General Usage & Lightweight Models (Quick Chat, Daily Tasks)",
+        "cat_hf": "Launch via HuggingFace OpenVINO Model ID",
+        "cat_settings": "Settings",
+        "cat_cpuf": "Launch CyberPUF LLM Dashboard",
+        "cat_exit": "Exit",
+        "cat_back": "[Go Back]",
+        "prompt_category": "Please select a category",
+        "prompt_model": "Please select a model",
+        "prompt_hf": "HuggingFace OpenVINO Model ID:",
+        "prompt_invalid": "Invalid selection. Please try again.",
+        "settings_opt": [
+            "Target Device",
+            "Max Response Length",
+            "Model Temperature",
+            "Privacy Mode",
+            "CyberPUF LLM Module",
+            "Hardware Attestation",
+            "PQC / Post-Quantum",
+            "Anti-Debugging",
+            "Dashboard Telemetry",
+            "Layer-by-Layer Paging",
+            "Voice Feedback / TTS",
+            "Language (Dil)",
+            "Reset Settings",
+            "Save & Go Back"
+        ],
+        "on": "ON",
+        "off": "OFF",
+        "sys_ready": "[SYSTEM] System ready! Local AI successfully launched.",
+        "cmd_exit": "Exit",
+        "question": "Question:",
+        "ai_name": "AI:",
+        "generating": "Generating response...",
+        "memory_cleared": "RAM successfully cleared!",
+        "lang_changed": "Language set to EN."
+    }
+}
+
+def get_loc(key, lang="TR"):
+    return LOCALIZATION.get(lang, LOCALIZATION["TR"]).get(key, key)
+
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -136,27 +228,32 @@ signal.signal(signal.SIGINT, signal_handler)
 def settings_menu():
     config = load_config()
     while True:
+        lang = config.get("language", "TR")
+        loc = LOCALIZATION.get(lang, LOCALIZATION["TR"])
+        opts = loc["settings_opt"]
+        
         clear_screen()
         print_header()
         print(f"\n{BOLD}{CYAN}" + "="*50)
-        print("AYARLAR MENÜSÜ")
+        print(loc["settings_header"])
         print("="*50 + f"{RESET}")
-        print(f"  {GREEN}1){RESET} Hedef Cihaz (Şu anki: {config.get('device', 'AUTO')})")
-        print(f"  {GREEN}2){RESET} Maksimum Cevap Uzunluğu (Şu anki: {config.get('max_tokens', 512)} token)")
-        print(f"  {GREEN}3){RESET} Model Yaratıcılığı/Sıcaklık (Şu anki: {config.get('temperature', 0.7)})")
-        print(f"  {GREEN}4){RESET} Gizlilik Modu (Şu anki: {'AÇIK' if config.get('privacy_mode', False) else 'KAPALI'})")
-        print(f"  {GREEN}5){RESET} CyberPUF LLM Modülü (Şu anki: {'AÇIK' if config.get('cyberpuf_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}6){RESET} Donanım Onaylama (Şu anki: {'AÇIK' if config.get('hardware_attestation_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}7){RESET} PQC / Kuantum Sonrası (Şu anki: {'AÇIK' if config.get('pqc_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}8){RESET} Anti-Debugging (Şu anki: {'AÇIK' if config.get('anti_debug_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}9){RESET} Dashboard Telemetrisi (Şu anki: {'AÇIK' if config.get('telemetry_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}10){RESET} Parçalı Şifre Çözme (Şu anki: {'AÇIK' if config.get('layer_paging_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}11){RESET} Sesli Yanıt / TTS (Şu anki: {'AÇIK' if config.get('voice_feedback_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}12){RESET} Ayarları Sıfırla")
-        print(f"  {GREEN}13){RESET} Kaydet ve Geri Dön")
+        def state(val): return loc["on"] if val else loc["off"]
+        print(f"  {GREEN}1){RESET} {opts[0]} ({config.get('device', 'AUTO')})")
+        print(f"  {GREEN}2){RESET} {opts[1]} ({config.get('max_tokens', 512)})")
+        print(f"  {GREEN}3){RESET} {opts[2]} ({config.get('temperature', 0.7)})")
+        print(f"  {GREEN}4){RESET} {opts[3]} ({state(config.get('privacy_mode', False))})")
+        print(f"  {GREEN}5){RESET} {opts[4]} ({state(config.get('cyberpuf_enabled', False))})")
+        print(f"  {GREEN}6){RESET} {opts[5]} ({state(config.get('hardware_attestation_enabled', False))})")
+        print(f"  {GREEN}7){RESET} {opts[6]} ({state(config.get('pqc_enabled', False))})")
+        print(f"  {GREEN}8){RESET} {opts[7]} ({state(config.get('anti_debug_enabled', False))})")
+        print(f"  {GREEN}9){RESET} {opts[8]} ({state(config.get('telemetry_enabled', False))})")
+        print(f"  {GREEN}10){RESET} {opts[9]} ({state(config.get('layer_paging_enabled', False))})")
+        print(f"  {GREEN}11){RESET} {opts[10]} ({state(config.get('voice_feedback_enabled', False))})")
+        print(f"  {GREEN}12){RESET} {opts[11]} ({config.get('language', 'TR')})")
+        print(f"  {GREEN}13){RESET} {opts[12]}")
+        print(f"  {GREEN}14){RESET} {opts[13]}")
         print(f"{CYAN}{BOLD}" + "="*50 + f"{RESET}")
-        
-        secim = input(f"\n{BOLD}Seçiminiz (1-13) veya /yardim: {RESET}").strip()
+        secim = input(f"\\n{BOLD}Seçiminiz (1-14) | /yardim: {RESET}").strip()
         
         if secim.lower() in ["/yardim", "?", "yardım"]:
             print(f"\n{CYAN}{BOLD}--- AYARLAR YARDIM MENÜSÜ ---{RESET}")
@@ -246,11 +343,17 @@ def settings_menu():
             print(f"{GREEN}Sesli Yanıt / TTS {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
             time.sleep(1)
         elif secim == "12":
-            config = DEFAULT_CONFIG.copy()
+            new_lang = "EN" if config.get("language", "TR") == "TR" else "TR"
+            config["language"] = new_lang
             save_config(config)
-            print(f"{GREEN}Ayarlar varsayılana sıfırlandı.{RESET}")
+            print(f"{GREEN}Language / Dil -> {new_lang}{RESET}")
             time.sleep(1)
         elif secim == "13":
+            config = DEFAULT_CONFIG.copy()
+            save_config(config)
+            print(f"{GREEN}Ayarlar / Settings reset.{RESET}")
+            time.sleep(1)
+        elif secim == "14":
             break
         else:
             print(f"{RED}Geçersiz seçim.{RESET}")
@@ -311,11 +414,14 @@ def setup_rag(docs_dir="docs"):
 
 def select_model():
     config = load_config()
+    lang = config.get("language", "TR")
+    loc = LOCALIZATION.get(lang, LOCALIZATION["TR"])
+    
     while True:
         clear_screen()
         print_header()
         
-        print(f"\n{BOLD}{YELLOW}KATEGORİLER:{RESET}")
+        print(f"\n{BOLD}{YELLOW}" + loc.get("menu_header", "KATEGORİLER") + f":{RESET}")
         print(f"  {GREEN}1){RESET} Siber Güvenlik (Pentest, Sızma Testi, Exploit/Zararlı Analizi)")
         print(f"  {GREEN}2){RESET} Belge, PDF ve Dosya İşlemleri (Özetleme, Düzenleme, Raporlama)")
         print(f"  {GREEN}3){RESET} Genel Kullanım ve Hafif Modeller (Hızlı Sohbet, Günlük İşler)")
@@ -505,7 +611,9 @@ if __name__ == "__main__":
         f.write("---\n")
 
     while True:
-        user_input = input(f"\n{BOLD}{CYAN}Soru:{RESET} ").strip()
+        lang = config.get("language", "TR")
+        loc = LOCALIZATION.get(lang, LOCALIZATION["TR"])
+        user_input = input(f"\n{BOLD}{CYAN}{loc['question']}{RESET} ").strip()
         
         if user_input.lower() in ["exit", "quit", "çıkış"]:
             animate_exit()
@@ -852,19 +960,33 @@ if __name__ == "__main__":
                 print(f"{RED}[RAG Hatası] Belge araması başarısız: {e}{RESET}")
 
         # --- Sistem mesajını oluştur ---
-        karakter_plani = {
-            "Varsayılan Asistan": "Sen Türkçe konuşan yardımsever bir yapay zekasın.",
-            "Siber Güvenlik Uzmanı": "Sen üst düzey bir Siber Güvenlik Uzmanısın. Yanıtlarında analitik, şüpheci ve detaylı ol. Güvenlik zafiyetlerine odaklan.",
-            "Yazılım Geliştirici": "Sen tecrübeli bir Yazılım Geliştiricisin. Kod odaklı, net ve kısa cevaplar ver. Gereksiz açıklamalar yapma.",
-            "Samimi Dost": "Sen kullanıcının en yakın arkadaşısın. Çok samimi, esprili ve günlük bir dille konuş. Emojiler kullan."
-        }
+        lang = config.get("language", "TR")
+        if lang == "EN":
+            karakter_plani = {
+                "Varsayılan Asistan": "You are a helpful and polite AI assistant speaking in English.",
+                "Siber Güvenlik Uzmanı": "You are a top-tier Cyber Security Expert. Be analytical, skeptical, and highly detailed. Focus on vulnerabilities.",
+                "Yazılım Geliştirici": "You are an experienced Software Developer. Focus on code, be concise and clear. Do not provide unnecessary explanations.",
+                "Samimi Dost": "You are the user's best friend. Speak in a very friendly, humorous, and daily tone. Use emojis."
+            }
+            mem_label = "[System Memory / Core Rules]"
+            rag_label = "[Relevant RAG Documents]\nPlease answer the user's question using the following context information:"
+        else:
+            karakter_plani = {
+                "Varsayılan Asistan": "Sen Türkçe konuşan yardımsever bir yapay zekasın.",
+                "Siber Güvenlik Uzmanı": "Sen üst düzey bir Siber Güvenlik Uzmanısın. Yanıtlarında analitik, şüpheci ve detaylı ol. Güvenlik zafiyetlerine odaklan.",
+                "Yazılım Geliştirici": "Sen tecrübeli bir Yazılım Geliştiricisin. Kod odaklı, net ve kısa cevaplar ver. Gereksiz açıklamalar yapma.",
+                "Samimi Dost": "Sen kullanıcının en yakın arkadaşısın. Çok samimi, esprili ve günlük bir dille konuş. Emojiler kullan."
+            }
+            mem_label = "[Sistem Hafızası / Ana Kurallar]"
+            rag_label = "[İlgili RAG Belgeleri]\nLütfen aşağıdaki bağlam bilgilerini kullanarak kullanıcının sorusunu cevapla:"
+
         secili_karakter = config.get("system_character", "Varsayılan Asistan")
         system_content = karakter_plani.get(secili_karakter, karakter_plani["Varsayılan Asistan"])
         
         if memory_context:
-            system_content += f"\n\n[Sistem Hafızası / Ana Kurallar]\n{memory_context}"
+            system_content += f"\n\n{mem_label}\n{memory_context}"
         if context_str:
-            system_content += f"\n[İlgili RAG Belgeleri]\nLütfen aşağıdaki bağlam bilgilerini kullanarak kullanıcının sorusunu cevapla:\n{context_str}"
+            system_content += f"\n{rag_label}\n{context_str}"
 
         # --- Mesaj listesini oluştur (tüm modeller için evrensel) ---
         messages = [{"role": "system", "content": system_content}]
@@ -953,7 +1075,7 @@ if __name__ == "__main__":
                         if self.is_first_token:
                             # İlk gerçek token geldi, animasyon satırını temizle ve Yapay Zeka başlığını at
                             sys.stdout.write("\r\033[K")
-                            sys.stdout.write(f"{BOLD}{GREEN}Yapay Zeka:{RESET}\n")
+                            sys.stdout.write(f"{BOLD}{GREEN}{loc['ai_name']}{RESET}\n")
                             self.is_first_token = False
                         
                         # Sadece yeni gelen metin kısmını ekrana yazdır
@@ -997,7 +1119,7 @@ if __name__ == "__main__":
             while gen_thread.is_alive():
                 # Sadece ilk kelime/token gelene kadar animasyonu göster
                 if streamer.is_first_token:
-                    sys.stdout.write(f"\r{BOLD}{YELLOW}Cevap üretiliyor... {CYAN}{animation[idx % len(animation)]}{RESET}")
+                    sys.stdout.write(f"\r{BOLD}{YELLOW}{loc['generating']} {CYAN}{animation[idx % len(animation)]}{RESET}")
                     sys.stdout.flush()
                 else:
                     elapsed = time.time() - start_time
