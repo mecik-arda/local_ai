@@ -699,25 +699,51 @@ if __name__ == "__main__":
         bar_color = GREEN if token_pct < 60 else (YELLOW if token_pct < 85 else RED)
         print(f"\n{bar_color}[Hafıza Doluluğu: {draw_mini_bar(token_pct)} %{int(token_pct)} | {prompt_tokens}/{max_context} Token]{RESET}")
 
-        print(f"\n{BOLD}{GREEN}Yapay Zeka:{RESET}")
-
-        # --- Çıkarım (Inference) - try/except ile korumalı ---
+        # --- Çıkarım (Inference) - Animasyonlu ve korumalı ---
+        import threading
+        import sys
+        
         try:
             temp_val = config.get("temperature", 0.7)
-            from transformers import TextStreamer
-            # Canlı kelime akışı için Streamer
-            streamer = TextStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
             
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=config.get("max_tokens", 512),
-                temperature=temp_val,
-                do_sample=True if temp_val > 0 else False,
-                pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0,
-                streamer=streamer
-            )
+            class GenerateThread(threading.Thread):
+                def __init__(self):
+                    super().__init__()
+                    self.result = None
+                    self.error = None
+                def run(self):
+                    try:
+                        self.result = model.generate(
+                            **inputs,
+                            max_new_tokens=config.get("max_tokens", 512),
+                            temperature=temp_val,
+                            do_sample=True if temp_val > 0 else False,
+                            pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
+                        )
+                    except Exception as e:
+                        self.error = e
 
-            # Geçmişe kaydetmek için cevabı yine de alıyoruz
+            gen_thread = GenerateThread()
+            gen_thread.start()
+
+            animation = ["[■□□□□□□□□□]", "[■■□□□□□□□□]", "[■■■□□□□□□□]", "[■■■■□□□□□□]", "[■■■■■□□□□□]", 
+                         "[■■■■■■□□□□]", "[■■■■■■■□□□]", "[■■■■■■■■□□]", "[■■■■■■■■■□]", "[■■■■■■■■■■]"]
+            idx = 0
+            while gen_thread.is_alive():
+                sys.stdout.write(f"\r{BOLD}{YELLOW}Cevap üretiliyor... {CYAN}{animation[idx % len(animation)]}{RESET}")
+                sys.stdout.flush()
+                idx += 1
+                time.sleep(0.1)
+
+            if gen_thread.error:
+                raise gen_thread.error
+                
+            outputs = gen_thread.result
+            
+            # Satırı temizle
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+
             response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
             response = response.strip()
         except Exception as e:
@@ -726,10 +752,11 @@ if __name__ == "__main__":
             continue
 
         if not response:
-            print(f"\r{YELLOW}(Boş yanıt üretildi, tekrar deneyin){RESET}")
+            print(f"\r{YELLOW}Yapay Zeka: (Boş yanıt üretildi, tekrar deneyin){RESET}")
             continue
 
-        print(f"\n{CYAN}" + "-"*80 + f"{RESET}")
+        print(f"\r{BOLD}{GREEN}Yapay Zeka:{RESET}\n{response}")
+        print(f"{CYAN}" + "-"*80 + f"{RESET}")
 
         # Geçmişe evrensel formatta ekle (dict olarak)
         chat_history.append({"role": "user", "content": user_input})
