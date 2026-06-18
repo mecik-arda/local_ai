@@ -17,6 +17,28 @@ from transformers import AutoTokenizer
 from optimum.intel import OVModelForCausalLM
 import openvino as ov
 
+# --- YENİ EKLENEN KÜTÜPHANELER ---
+import subprocess
+try:
+    from duckduckgo_search import DDGS
+except ImportError:
+    DDGS = None
+
+try:
+    import speech_recognition as sr
+    import pyttsx3
+except ImportError:
+    sr = None
+    pyttsx3 = None
+
+try:
+    import pytesseract
+    from PIL import Image
+except ImportError:
+    pytesseract = None
+    Image = None
+# --------------------------------
+
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -42,7 +64,9 @@ DEFAULT_CONFIG = {
     "pqc_enabled": False,
     "anti_debug_enabled": False,
     "telemetry_enabled": False,
-    "layer_paging_enabled": False
+    "layer_paging_enabled": False,
+    "system_character": "Varsayılan Asistan",
+    "voice_feedback_enabled": False
 }
 
 def load_config():
@@ -127,11 +151,21 @@ def settings_menu():
         print(f"  {GREEN}8){RESET} Anti-Debugging (Şu anki: {'AÇIK' if config.get('anti_debug_enabled', False) else 'KAPALI'})")
         print(f"  {GREEN}9){RESET} Dashboard Telemetrisi (Şu anki: {'AÇIK' if config.get('telemetry_enabled', False) else 'KAPALI'})")
         print(f"  {GREEN}10){RESET} Parçalı Şifre Çözme (Şu anki: {'AÇIK' if config.get('layer_paging_enabled', False) else 'KAPALI'})")
-        print(f"  {GREEN}11){RESET} Ayarları Sıfırla")
-        print(f"  {GREEN}12){RESET} Kaydet ve Geri Dön")
+        print(f"  {GREEN}11){RESET} Sesli Yanıt / TTS (Şu anki: {'AÇIK' if config.get('voice_feedback_enabled', False) else 'KAPALI'})")
+        print(f"  {GREEN}12){RESET} Ayarları Sıfırla")
+        print(f"  {GREEN}13){RESET} Kaydet ve Geri Dön")
         print(f"{CYAN}{BOLD}" + "="*50 + f"{RESET}")
         
-        secim = input(f"\n{BOLD}Seçiminiz (1-12): {RESET}").strip()
+        secim = input(f"\n{BOLD}Seçiminiz (1-13) veya /yardim: {RESET}").strip()
+        
+        if secim.lower() in ["/yardim", "?", "yardım"]:
+            print(f"\n{CYAN}{BOLD}--- AYARLAR YARDIM MENÜSÜ ---{RESET}")
+            print(f"{YELLOW}1-3) Temel Ayarlar:{RESET} Hedef işlemciyi (CPU/GPU), çıkış token limitini ve yaratıcılık oranını (sıcaklık) belirler.")
+            print(f"{YELLOW}4-10) Güvenlik (CyberPUF):{RESET} Gizlilik modunu, donanım doğrulamayı, kuantum sonrası şifrelemeyi ve anti-debug'ı aktif eder.")
+            print(f"{YELLOW}11) Sesli Yanıt:{RESET} Çevrimdışı Text-to-Speech motoru ile modelin cevaplarını sesli okutur.")
+            print(f"{CYAN}" + "-"*50 + f"{RESET}")
+            input(f"\n{BOLD}Devam etmek için Enter'a basın...{RESET}")
+            continue
         
         if secim == "1":
             yeni_cihaz = input(f"Hedef cihazı yazın (Örn: AUTO, CPU, GPU, NPU) [Geçerli: {config.get('device', 'AUTO')}]: ").strip().upper()
@@ -206,11 +240,17 @@ def settings_menu():
             print(f"{GREEN}Parçalı Şifre Çözme {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
             time.sleep(1)
         elif secim == "11":
+            current_val = config.get("voice_feedback_enabled", False)
+            config["voice_feedback_enabled"] = not current_val
+            save_config(config)
+            print(f"{GREEN}Sesli Yanıt / TTS {'KAPALI' if current_val else 'AÇIK'} olarak değiştirildi.{RESET}")
+            time.sleep(1)
+        elif secim == "12":
             config = DEFAULT_CONFIG.copy()
             save_config(config)
             print(f"{GREEN}Ayarlar varsayılana sıfırlandı.{RESET}")
             time.sleep(1)
-        elif secim == "12":
+        elif secim == "13":
             break
         else:
             print(f"{RED}Geçersiz seçim.{RESET}")
@@ -291,7 +331,18 @@ def select_model():
         print(f"{CYAN}{BOLD}" + "="*80 + f"{RESET}")
         
         opts = "1/2/3/4/5/6/7" if config.get("cyberpuf_enabled", False) else "1/2/3/4/5/6"
-        kategori = input(f"\n{BOLD}Lütfen bir kategori seçin ({opts}): {RESET}").strip()
+        kategori = input(f"\n{BOLD}Lütfen bir kategori seçin ({opts}) veya /yardim: {RESET}").strip()
+        
+        if kategori.lower() in ["/yardim", "?", "yardım"]:
+            print(f"\n{CYAN}{BOLD}--- ANA MENÜ YARDIM ---{RESET}")
+            print(f"{YELLOW}Kategori 1:{RESET} Ağ trafiği analizi, sızma testi (pentest) raporları ve zafiyet analizleri için eğitilmiş uzman modeller.")
+            print(f"{YELLOW}Kategori 2:{RESET} Uzun belgeleri, PDF'leri okumak veya kod yazmak/düzeltmek için geniş bağlam kapasiteli modeller.")
+            print(f"{YELLOW}Kategori 3:{RESET} Eski bilgisayarlarda bile çok hızlı çalışan, günlük ve basit görevler için optimize edilmiş hafif modeller.")
+            print(f"{YELLOW}Kategori 4:{RESET} Kendi bulduğunuz herhangi bir HF OpenVINO modelini direkt adıyla (örn: OpenVINO/Qwen-1.5B) başlatmanızı sağlar.")
+            print(f"{CYAN}" + "-"*50 + f"{RESET}")
+            input(f"\n{BOLD}Devam etmek için Enter'a basın...{RESET}")
+            continue
+
         if kategori == "1":
             clear_screen()
             print_header()
@@ -388,10 +439,25 @@ def load_ai_model(model_id, core, device_target):
         )
         return tokenizer, model
     except Exception as e:
-        print(f"\nHATA: Model yüklenemedi. Lütfen boş diskinizi ve internetinizi kontrol edin. ({e})")
-        if "large_allocations" in str(e).lower() or "exceed" in str(e).lower():
-            print(f"{YELLOW}İpucu: GPU belleği yetersiz. Cihazı CPU olarak değiştirmeyi deneyin (/ayarlar).{RESET}")
-        return None, None
+        if device_target == "GPU" and ("large_allocations" in str(e).lower() or "exceed" in str(e).lower() or "usm" in str(e).lower()):
+            print(f"\n{YELLOW}UYARI: GPU belleği yetersiz kaldı! Olası USM sızıntısı veya sınır aşımı.{RESET}")
+            print(f"{YELLOW}Sistem otomatik olarak CPU moduna geçiş yapıyor... Lütfen bekleyin.{RESET}")
+            try:
+                model = OVModelForCausalLM.from_pretrained(
+                    model_id,
+                    trust_remote_code=True,
+                    device="CPU"
+                )
+                print(f"{GREEN}>> Model CPU üzerinde başarıyla derlendi!{RESET}")
+                return tokenizer, model
+            except Exception as e2:
+                print(f"\n{RED}HATA: Model CPU'da da yüklenemedi: {e2}{RESET}")
+                return None, None
+        else:
+            print(f"\nHATA: Model yüklenemedi. Lütfen boş diskinizi ve internetinizi kontrol edin. ({e})")
+            if "large_allocations" in str(e).lower() or "exceed" in str(e).lower():
+                print(f"{YELLOW}İpucu: GPU belleği yetersiz. Cihazı CPU olarak değiştirmeyi deneyin (/ayarlar).{RESET}")
+            return None, None
 
 if __name__ == "__main__":
     model_id = select_model()
@@ -419,9 +485,10 @@ if __name__ == "__main__":
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) if vectorstore else None
 
     print(f"\n{GREEN}{BOLD}[SİSTEM] Sistem hazır! Yerel yapay zeka başarıyla başlatıldı.{RESET}")
-    print(f"{YELLOW}Sohbet Komutları:{RESET} Çıkış: {BOLD}exit{RESET} | Ana Menü: {BOLD}/menu{RESET} | Ayarlar: {BOLD}/ayarlar{RESET}")
+    print(f"{YELLOW}Sohbet Komutları:{RESET} Çıkış: {BOLD}exit{RESET} | Ana Menü: {BOLD}/menu{RESET} | Ayarlar: {BOLD}/ayarlar{RESET} | Karakter Seç: {BOLD}/karakter{RESET}")
     print(f"{YELLOW}Sistem Komutları:{RESET} Model Değiştir: {BOLD}/model{RESET} | Sistem Kaynakları: {BOLD}/sistem{RESET} | Dışa Aktar: {BOLD}/disa-aktar rapor.md{RESET} | HF İndir: {BOLD}/hf-indir repo_id{RESET}")
-    print(f"{YELLOW}Hafıza Komutları:{RESET} Anlık Hafıza Sıfırla: {BOLD}/temizle{RESET} | Hafızayı Gör: {BOLD}/hafiza{RESET} | Hafızayı Yenile: {BOLD}/yenile{RESET}")
+    print(f"{YELLOW}Hafıza Komutları:{RESET} Sıfırla: {BOLD}/temizle{RESET} | Gör: {BOLD}/hafiza{RESET} | Yenile: {BOLD}/yenile{RESET} | Kaydet: {BOLD}/kaydet gecmis.json{RESET} | Yükle: {BOLD}/yukle gecmis.json{RESET}")
+    print(f"{YELLOW}Ajan Komutları:{RESET} Çalıştır: {BOLD}/calistir komut{RESET} | Ara: {BOLD}/ara sorgu{RESET} | Görsel: {BOLD}/goster img.png soru{RESET} | Ses: {BOLD}/ses-dinle{RESET}")
     print(f"{CYAN}" + "="*80 + f"{RESET}")
 
     chat_history = []       # Her eleman: {"role": "user"/"assistant", "content": "..."}
@@ -530,6 +597,55 @@ if __name__ == "__main__":
             memory_context = load_memory()
             print(f"{GREEN}>> Hafıza dosyaları başarıyla yeniden yüklendi!{RESET}")
             continue
+        elif user_input.lower().startswith("/karakter"):
+            print(f"\n{BOLD}{CYAN}--- KARAKTER SEÇİMİ ---{RESET}")
+            print(f"  {GREEN}1){RESET} Varsayılan Asistan (Genel, Yardımsever)")
+            print(f"  {GREEN}2){RESET} Siber Güvenlik Uzmanı (Analitik, Detaylı, Şüpheci)")
+            print(f"  {GREEN}3){RESET} Yazılım Geliştirici (Kod odaklı, Net, Kısa)")
+            print(f"  {GREEN}4){RESET} Samimi Dost (Günlük dilde konuşan, Samimi, Emojili)")
+            secim = input(f"\nSeçiminiz (1-4): ").strip()
+            karakterler = {
+                "1": "Varsayılan Asistan",
+                "2": "Siber Güvenlik Uzmanı",
+                "3": "Yazılım Geliştirici",
+                "4": "Samimi Dost"
+            }
+            if secim in karakterler:
+                config["system_character"] = karakterler[secim]
+                save_config(config)
+                print(f"{GREEN}Karakter başarıyla '{karakterler[secim]}' olarak ayarlandı!{RESET}")
+            else:
+                print(f"{RED}Geçersiz seçim.{RESET}")
+            continue
+        elif user_input.lower().startswith("/kaydet"):
+            parts = user_input.split(" ", 1)
+            filename = parts[1] if len(parts) > 1 else "gecmis.json"
+            if not filename.endswith(".json"):
+                filename += ".json"
+            try:
+                os.makedirs("chats", exist_ok=True)
+                with open(os.path.join("chats", filename), "w", encoding="utf-8") as f:
+                    json.dump(chat_history, f, ensure_ascii=False, indent=2)
+                print(f"{GREEN}>> Sohbet geçmişi '{filename}' olarak kaydedildi!{RESET}")
+            except Exception as e:
+                print(f"{RED}Kaydetme hatası: {e}{RESET}")
+            continue
+        elif user_input.lower().startswith("/yukle"):
+            parts = user_input.split(" ", 1)
+            filename = parts[1] if len(parts) > 1 else "gecmis.json"
+            if not filename.endswith(".json"):
+                filename += ".json"
+            try:
+                filepath = os.path.join("chats", filename)
+                if os.path.exists(filepath):
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        chat_history = json.load(f)
+                    print(f"{GREEN}>> Sohbet geçmişi '{filename}' dosyasından hafızaya yüklendi!{RESET}")
+                else:
+                    print(f"{RED}HATA: '{filename}' bulunamadı.{RESET}")
+            except Exception as e:
+                print(f"{RED}Yükleme hatası: {e}{RESET}")
+            continue
         elif user_input.lower().startswith("/cpuf-sifrele"):
             if not config.get("cyberpuf_enabled", False):
                 print(f"{RED}Bu komutu kullanmak için ayarlardan CyberPUF modülünü aktif etmelisiniz.{RESET}")
@@ -621,6 +737,102 @@ if __name__ == "__main__":
                     sys.exit(1)
                 print(f"{GREEN}Menüden dönüldü! Kaldığınız yerden devam edebilirsiniz.{RESET}")
             continue
+        elif user_input.lower().startswith("/calistir"):
+            parts = user_input.split(" ", 1)
+            if len(parts) < 2:
+                print(f"{YELLOW}Kullanım: /calistir <sistem_komutu>{RESET}")
+                continue
+            cmd = parts[1]
+            print(f"\n{RED}{BOLD}DİKKAT: Aşağıdaki komutu çalıştırmak üzeresiniz:{RESET}\n{cmd}")
+            onay = input(f"{YELLOW}Onaylıyor musunuz? [E/H]: {RESET}").strip().lower()
+            if onay in ['e', 'evet']:
+                print(f"{CYAN}Komut çalıştırılıyor...{RESET}")
+                try:
+                    out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, text=True)
+                    user_input = f"Aşağıdaki komutu çalıştırdım: `{cmd}`\n\nÇıktısı:\n```\n{out}\n```\nLütfen bu çıktıyı analiz et."
+                except subprocess.CalledProcessError as e:
+                    user_input = f"Aşağıdaki komutu çalıştırdım: `{cmd}`\n\nAncak hata verdi:\n```\n{e.output}\n```\nSence sorun ne?"
+            else:
+                print(f"{YELLOW}İşlem iptal edildi.{RESET}")
+                continue
+                
+        elif user_input.lower().startswith("/ara"):
+            parts = user_input.split(" ", 1)
+            if len(parts) < 2:
+                print(f"{YELLOW}Kullanım: /ara <sorgu>{RESET}")
+                continue
+            sorgu = parts[1]
+            if DDGS is None:
+                print(f"{RED}HATA: duckduckgo-search kütüphanesi yüklü değil.{RESET}")
+                continue
+            print(f"{CYAN}İnternette aranıyor: {sorgu}...{RESET}")
+            try:
+                results = DDGS().text(sorgu, max_results=3)
+                search_text = "\n\n".join([f"Başlık: {r['title']}\nÖzet: {r['body']}\nLink: {r['href']}" for r in results])
+                user_input = f"Kullanıcının Sorusu: {sorgu}\n\nİnternet Arama Sonuçları:\n{search_text}\n\nLütfen bu güncel bilgilere göre soruyu yanıtla."
+            except Exception as e:
+                print(f"{RED}Arama başarısız: {e}{RESET}")
+                continue
+
+        elif user_input.lower().startswith("/goster"):
+            parts = user_input.split(" ", 2)
+            if len(parts) < 2:
+                print(f"{YELLOW}Kullanım: /goster <resim.png> <isteğe bağlı soru>{RESET}")
+                continue
+            img_path = parts[1]
+            soru = parts[2] if len(parts) > 2 else "Bu resimde ne yazıyor?"
+            if pytesseract is None or Image is None:
+                print(f"{RED}HATA: pytesseract veya PIL yüklü değil.{RESET}")
+                continue
+            if not os.path.exists(img_path):
+                print(f"{RED}HATA: Dosya bulunamadı: {img_path}{RESET}")
+                continue
+            print(f"{CYAN}Resim OCR ile analiz ediliyor...{RESET}")
+            try:
+                extracted_text = pytesseract.image_to_string(Image.open(img_path), lang='tur+eng')
+                if not extracted_text.strip():
+                    extracted_text = "(Okunabilir metin bulunamadı)"
+                user_input = f"Bir resim yükledim. Sorum: {soru}\n\nResimden okunan metin:\n```\n{extracted_text}\n```\nLütfen analiz et."
+            except Exception as e:
+                print(f"{RED}OCR Analizi başarısız: {e}{RESET}")
+                continue
+
+        elif user_input.lower() == "/ses-dinle":
+            if sr is None:
+                print(f"{RED}HATA: SpeechRecognition kütüphanesi yüklü değil.{RESET}")
+                continue
+            recognizer = sr.Recognizer()
+            try:
+                with sr.Microphone() as source:
+                    print(f"\n{BOLD}{GREEN}>>> Lütfen konuşun (Dinleniyor...) <<<{RESET}")
+                    recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                    audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
+                print(f"{CYAN}Ses işleniyor...{RESET}")
+                user_input = recognizer.recognize_google(audio, language="tr-TR")
+                print(f"{BOLD}{CYAN}Siz (Sesten):{RESET} {user_input}")
+            except sr.WaitTimeoutError:
+                print(f"{YELLOW}Zaman aşımı, ses algılanmadı.{RESET}")
+                continue
+            except sr.UnknownValueError:
+                print(f"{YELLOW}Ses anlaşılamadı.{RESET}")
+                continue
+            except Exception as e:
+                print(f"{RED}Mikrofon hatası (WSL kullanıyorsanız PulseAudio gerekebilir): {e}{RESET}")
+                continue
+        elif user_input.lower() in ["/yardim", "?", "help", "yardım"]:
+            print(f"\n{CYAN}{BOLD}--- SOHBET KOMUTLARI YARDIM MENÜSÜ ---{RESET}")
+            print(f"{YELLOW}/calistir <komut>:{RESET} Bilgisayarınızın terminalinde yerel komut (örn: dir, ls, python) çalıştırır ve çıktısını yapay zekaya yorumlatır.")
+            print(f"{YELLOW}/ara <sorgu>:{RESET} DuckDuckGo üzerinden internette arama yapar ve güncel bilgileri yapay zekaya sunar.")
+            print(f"{YELLOW}/goster <resim.png> <soru>:{RESET} Resimdeki yazıları ve kodları OCR ile okuyup modele iletir.")
+            print(f"{YELLOW}/ses-dinle:{RESET} Mikrofonunuzu açıp 5 saniye sesinizi dinler ve yapay zekaya yazar.")
+            print(f"{YELLOW}/model:{RESET} Modeli RAM'den tamamen siler ve ana menüye dönüp başka bir model seçmenizi sağlar.")
+            print(f"{YELLOW}/sistem:{RESET} CPU ve RAM tüketiminizi ekrana canlı yansıtır.")
+            print(f"{YELLOW}/disa-aktar <rapor>:{RESET} O anki tüm sohbet geçmişinizi şık bir Markdown raporu olarak kaydeder.")
+            print(f"{YELLOW}/kaydet ve /yukle:{RESET} Sohbet seansınızı JSON dosyasına kaydeder ve geri yükler.")
+            print(f"{YELLOW}/karakter:{RESET} Yapay zekanın davranış tarzını (Siber Güvenlikçi, Yazılımcı, vb.) değiştirir.")
+            print(f"{CYAN}" + "-"*60 + f"{RESET}")
+            continue
+
         elif user_input.startswith("/"):
             print(f"{RED}HATA: Bilinmeyen komut '{user_input}'. Lütfen geçerli bir komut kullanın (örn: /temizle, /model, /ayarlar).{RESET}")
             continue
@@ -640,7 +852,15 @@ if __name__ == "__main__":
                 print(f"{RED}[RAG Hatası] Belge araması başarısız: {e}{RESET}")
 
         # --- Sistem mesajını oluştur ---
-        system_content = "Sen Türkçe konuşan yardımsever bir yapay zekasın."
+        karakter_plani = {
+            "Varsayılan Asistan": "Sen Türkçe konuşan yardımsever bir yapay zekasın.",
+            "Siber Güvenlik Uzmanı": "Sen üst düzey bir Siber Güvenlik Uzmanısın. Yanıtlarında analitik, şüpheci ve detaylı ol. Güvenlik zafiyetlerine odaklan.",
+            "Yazılım Geliştirici": "Sen tecrübeli bir Yazılım Geliştiricisin. Kod odaklı, net ve kısa cevaplar ver. Gereksiz açıklamalar yapma.",
+            "Samimi Dost": "Sen kullanıcının en yakın arkadaşısın. Çok samimi, esprili ve günlük bir dille konuş. Emojiler kullan."
+        }
+        secili_karakter = config.get("system_character", "Varsayılan Asistan")
+        system_content = karakter_plani.get(secili_karakter, karakter_plani["Varsayılan Asistan"])
+        
         if memory_context:
             system_content += f"\n\n[Sistem Hafızası / Ana Kurallar]\n{memory_context}"
         if context_str:
@@ -702,9 +922,51 @@ if __name__ == "__main__":
         # --- Çıkarım (Inference) - Animasyonlu ve korumalı ---
         import threading
         import sys
+        from transformers.generation.streamers import BaseStreamer
         
         try:
             temp_val = config.get("temperature", 0.7)
+            
+            class CustomStreamer(BaseStreamer):
+                def __init__(self, tokenizer):
+                    super().__init__()
+                    self.tokenizer = tokenizer
+                    self.is_first_token = True
+                    self.next_tokens_are_prompt = True
+                    self.token_cache = []
+                    self.print_len = 0
+            
+                def put(self, value):
+                    if len(value.shape) > 1 and value.shape[0] > 1:
+                        value = value[0]
+                    elif len(value.shape) > 1:
+                        value = value[0]
+                        
+                    # Prompt'un ekrana sızmasını (echo) engelle
+                    if self.next_tokens_are_prompt:
+                        self.next_tokens_are_prompt = False
+                        return
+                        
+                    self.token_cache.extend(value.tolist())
+                    text = self.tokenizer.decode(self.token_cache, skip_special_tokens=True)
+                    if text:
+                        if self.is_first_token:
+                            # İlk gerçek token geldi, animasyon satırını temizle ve Yapay Zeka başlığını at
+                            sys.stdout.write("\r\033[K")
+                            sys.stdout.write(f"{BOLD}{GREEN}Yapay Zeka:{RESET}\n")
+                            self.is_first_token = False
+                        
+                        # Sadece yeni gelen metin kısmını ekrana yazdır
+                        new_text = text[self.print_len:]
+                        if new_text:
+                            sys.stdout.write(new_text)
+                            sys.stdout.flush()
+                            self.print_len = len(text)
+            
+                def end(self):
+                    pass
+
+            streamer = CustomStreamer(tokenizer)
             
             class GenerateThread(threading.Thread):
                 def __init__(self):
@@ -718,7 +980,8 @@ if __name__ == "__main__":
                             max_new_tokens=config.get("max_tokens", 512),
                             temperature=temp_val,
                             do_sample=True if temp_val > 0 else False,
-                            pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
+                            pad_token_id=tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0,
+                            streamer=streamer
                         )
                     except Exception as e:
                         self.error = e
@@ -729,20 +992,40 @@ if __name__ == "__main__":
             animation = ["[■□□□□□□□□□]", "[■■□□□□□□□□]", "[■■■□□□□□□□]", "[■■■■□□□□□□]", "[■■■■■□□□□□]", 
                          "[■■■■■■□□□□]", "[■■■■■■■□□□]", "[■■■■■■■■□□]", "[■■■■■■■■■□]", "[■■■■■■■■■■]"]
             idx = 0
+            start_time = time.time()
+            
             while gen_thread.is_alive():
-                sys.stdout.write(f"\r{BOLD}{YELLOW}Cevap üretiliyor... {CYAN}{animation[idx % len(animation)]}{RESET}")
-                sys.stdout.flush()
+                # Sadece ilk kelime/token gelene kadar animasyonu göster
+                if streamer.is_first_token:
+                    sys.stdout.write(f"\r{BOLD}{YELLOW}Cevap üretiliyor... {CYAN}{animation[idx % len(animation)]}{RESET}")
+                    sys.stdout.flush()
+                else:
+                    elapsed = time.time() - start_time
+                    tokens = len(streamer.token_cache)
+                    tps = tokens / elapsed if elapsed > 0 else 0
+                    cpu_pct = psutil.cpu_percent()
+                    ram_pct = psutil.virtual_memory().percent
+                    
+                    hud = f"{CYAN}[HUD]{RESET} {BOLD}CPU:{RESET} %{cpu_pct} | {BOLD}RAM:{RESET} %{ram_pct} | {BOLD}Hız:{RESET} {tps:.1f} T/s | {BOLD}Token:{RESET} {tokens}"
+                    sys.stdout.write(f"\033[s\033[999;1H\033[K{hud}\033[u")
+                    sys.stdout.flush()
+                    
                 idx += 1
                 time.sleep(0.1)
+
+            # HUD Temizleme
+            sys.stdout.write("\033[s\033[999;1H\033[K\033[u")
+            sys.stdout.flush()
 
             if gen_thread.error:
                 raise gen_thread.error
                 
             outputs = gen_thread.result
             
-            # Satırı temizle
-            sys.stdout.write("\r\033[K")
-            sys.stdout.flush()
+            # Eğer yanıt bomboş döndüyse is_first_token hala True kalmıştır, onu kontrol et
+            if streamer.is_first_token:
+                sys.stdout.write("\r\033[K")
+                sys.stdout.flush()
 
             response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
             response = response.strip()
@@ -755,8 +1038,15 @@ if __name__ == "__main__":
             print(f"\r{YELLOW}Yapay Zeka: (Boş yanıt üretildi, tekrar deneyin){RESET}")
             continue
 
-        print(f"\r{BOLD}{GREEN}Yapay Zeka:{RESET}\n{response}")
-        print(f"{CYAN}" + "-"*80 + f"{RESET}")
+        print(f"\n{CYAN}" + "-"*80 + f"{RESET}")
+        
+        if config.get("voice_feedback_enabled", False) and pyttsx3 is not None:
+            try:
+                engine = pyttsx3.init()
+                engine.say(response)
+                engine.runAndWait()
+            except Exception as e:
+                print(f"{RED}[TTS Hatası] Ses çalınamadı: {e}{RESET}")
 
         # Geçmişe evrensel formatta ekle (dict olarak)
         chat_history.append({"role": "user", "content": user_input})
