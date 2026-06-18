@@ -16,6 +16,8 @@ load_dotenv()
 cpuf_process = None
 
 warnings.filterwarnings("ignore")
+import transformers
+transformers.logging.set_verbosity_error()
 from transformers import AutoTokenizer
 from optimum.intel import OVModelForCausalLM
 import openvino as ov
@@ -44,7 +46,7 @@ except ImportError:
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 
 BLUE = "\033[94m"
