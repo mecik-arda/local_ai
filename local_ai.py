@@ -216,6 +216,8 @@ def settings_menu():
             print(f"{RED}Geçersiz seçim.{RESET}")
             time.sleep(1)
 
+MAX_MEMORY_CHARS = 1500  # Hafıza bağlamının prompt'u şişirmemesi için karakter limiti
+
 def load_memory(memory_dir="memory"):
     if not os.path.exists(memory_dir):
         return ""
@@ -229,7 +231,10 @@ def load_memory(memory_dir="memory"):
             print(f"Hafıza yüklenirken hata ({md_path}): {e}")
             
     if memory_texts:
-        return "\n\n".join(memory_texts)
+        combined = "\n\n".join(memory_texts)
+        if len(combined) > MAX_MEMORY_CHARS:
+            combined = combined[:MAX_MEMORY_CHARS] + "\n... (hafıza kırpıldı)"
+        return combined
     return ""
 
 def setup_rag(docs_dir="docs"):
@@ -375,14 +380,23 @@ def load_ai_model(model_id, core, device_target):
 
     print(f"[2/2] Optimize edilmiş OpenVINO modeli indiriliyor ve Intel {device_target} üzerinde derleniyor...")
     try:
+        # GPU büyük bellek tahsisi hatalarını önlemek için ov_config ekliyoruz
+        ov_config = {}
+        if device_target == "GPU":
+            ov_config["GPU_ENABLE_SDPA_OPTIMIZATION"] = "YES"
+            ov_config["ENABLE_LARGE_ALLOCATIONS"] = "YES"
+
         model = OVModelForCausalLM.from_pretrained(
             model_id,
             trust_remote_code=True,
-            device=device_target
+            device=device_target,
+            ov_config=ov_config if ov_config else None
         )
         return tokenizer, model
     except Exception as e:
         print(f"\nHATA: Model yüklenemedi. Lütfen boş diskinizi ve internetinizi kontrol edin. ({e})")
+        if "large_allocations" in str(e).lower() or "exceed" in str(e).lower():
+            print(f"{YELLOW}İpucu: GPU belleği yetersiz. Cihazı CPU olarak değiştirmeyi deneyin (/ayarlar).{RESET}")
         return None, None
 
 if __name__ == "__main__":
